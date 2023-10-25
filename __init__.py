@@ -42,6 +42,7 @@ def version_helper():
 YCPDIR = os.path.dirname(__file__)
 VERSION = version_helper()
 PY3 = sys.version_info[0] >= 3
+MAX_RESTORABLE_TABS = 3
 
 # These variables are ignored if the corresponding
 # XDG environment variable is non-empty and absolute

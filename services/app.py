@@ -63,3 +63,11 @@ class App:
 
     def input_is_blocked(self):
         pass
+
+    def exit(self):
+        """Exit the program."""
+        raise SystemExit
+
+    def reset(self):
+        pass
+

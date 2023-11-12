@@ -199,16 +199,16 @@ class UI(DisplayableContainer):
 
     def setup(self):
         """Build up the UI by initializing widgets."""
-        from ycp.gui.widgets.titlebar import TitleBar
-        from ycp.gui.widgets.console import Console
-        from ycp.gui.widgets.statusbar import StatusBar
-        from ycp.gui.widgets.procmanager import ProcManager
-        from ycp.gui.widgets.pager import Pager
+        from widgets.titlebar import TitleBar
+        from widgets.console import Console
+        from widgets.statusbar import StatusBar
+        from widgets.procmanager import ProcManager
+        from widgets.pager import Pager
 
         self.titlebar = TitleBar(self.win)
         self.add_child(self.titlebar)
 
-        elf.settings.signal_bind('setopt.viewmode', self._set_viewmode)
+        self.settings.signal_bind('setopt.viewmode', self._set_viewmode)
         self._viewmode = None
         # The following line sets self.browser implicitly through the signal
         self.viewmode = self.settings.viewmode
@@ -350,6 +350,7 @@ class UI(DisplayableContainer):
             column.level_restore()
 
     def open_console(self, string='', prompt=None, position=None):
+        self.change_mode('normal')
         if self.console.open(string, prompt=prompt, position=position):
             self.status.msg = None
 
@@ -421,7 +422,77 @@ class UI(DisplayableContainer):
             raise ValueError("Attempting to set invalid viewmode `%s`, should "
                              "be one of `%s`." % (value, "`, `".join(self.ALLOWED_VIEWMODES)))
 
+    def change_mode(self, mode=None):
+        """:change_mode <mode>
+
+        Change mode to "visual" (selection) or "normal" mode.
+        """
+        if mode is None:
+            self.fm.notify('Syntax: change_mode <mode>', bad=True)
+            return
+        if mode == self.mode:  # pylint: disable=access-member-before-definition
+            return
+        if mode == 'visual':
+            self._visual_pos_start = self.thisdir.pointer
+            self._visual_move_cycles = 0
+            self._previous_selection = set(self.thisdir.marked_items)
+            self.mark_files(val=not self._visual_reverse, movedown=False)
+        elif mode == 'normal':
+            if self.mode == 'visual':  # pylint: disable=access-member-before-definition
+                self._visual_pos_start = None
+                self._visual_move_cycles = None
+                self._previous_selection = None
+        else:
+            return
+        self.mode = mode
+        self.ui.status.request_redraw()
+
+    def move(self):
+        pass
+
+    def move_parent(self):
+        pass
+
+    def select_file(self):
+        pass
+
+    def scroll(self):
+        pass
+
+    def get_preview(self):
+        pass
+
+    def update_preview(self):
+        pass
+
+
+class TabManager:
+
+    def get_tab_list(self):
+        pass
+
 
 class Tab:
     def __init__(self):
+        pass
+
+    def open(self):
+        pass
+
+    def close(self):
+        pass
+
+    def restore(self):
+        pass
+
+    def move(self):
+        pass
+
+    def create(self):
+        pass
+
+    def shift(self):
+        pass
+
+    def switch(self):
         pass

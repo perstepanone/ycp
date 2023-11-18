@@ -464,35 +464,3 @@ class UI(DisplayableContainer):
 
     def update_preview(self):
         pass
-
-
-class TabManager:
-
-    def get_tab_list(self):
-        pass
-
-
-class Tab:
-    def __init__(self):
-        pass
-
-    def open(self):
-        pass
-
-    def close(self):
-        pass
-
-    def restore(self):
-        pass
-
-    def move(self):
-        pass
-
-    def create(self):
-        pass
-
-    def shift(self):
-        pass
-
-    def switch(self):
-        pass

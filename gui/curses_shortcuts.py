@@ -4,8 +4,7 @@
 import sys
 import curses
 
-import gui.color import get_color
-
+from gui.color import get_color
 
 REVERSE_ADDCH_ARGS = sys.version[0:5] == '3.7.0'
 

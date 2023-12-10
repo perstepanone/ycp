@@ -315,7 +315,7 @@ class DisplayableContainer(Displayable):
             obj.parent = None
 
     def get_focused_obj(self):
-        # Finds a focused displayable object in the container.
+        """Finds a focused displayable object in the container."""
         for displayable in self.container:
             if displayable.focused:
                 return displayable

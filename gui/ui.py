@@ -4,12 +4,18 @@ import threading
 import os
 import curses
 
+from gui.displayable import DisplayableContainer
+from mouse_event import MouseEvent, _setup_mouse
+
+ESCAPE_ICON_TITLE = '\033]1;'
+
 
 # TODO: add mice support
 class UI(DisplayableContainer):
     def __init__(self, app=None):
         self.is_setup = False
         self.is_on = False
+        self.termsize = None
         self.keybuffer = KeyBuffer()
         self.keymaps = KeyMaps(self.keybuffer)
         self.redrawlock = threading.Event()
@@ -23,6 +29,7 @@ class UI(DisplayableContainer):
         self.pager = None
         self.browser = None
         # TODO: add multiplexer support
+        self._draw_title = None
         if app is not None:
             self.app = app
 
@@ -122,7 +129,7 @@ class UI(DisplayableContainer):
         if key < 0:
             self.keybuffer.clear()
 
-        elif not DisplaybleContainer.press(self, key):
+        elif not DisplayableContainer.press(self, key):
             self.keymaps.use_keymap("browser")
             self.press(key)
 

@@ -2,6 +2,24 @@
 
 import curses
 
+MOUSEMASK = curses.ALL_MOUSE_EVENTS | curses.REPORT_MOUSE_POSITION
+
+
+def _setup_mouse(signal):
+    if signal['value']:
+        curses.mousemask(MOUSEMASK)
+        curses.mouseinterval(0)
+
+        # This line solves this problem:
+        # If a mouse click triggers an action that disables curses and
+        # starts curses again, (e.g. running a ## file by clicking on its
+        # preview) and the next key is another mouse click, the bstate of this
+        # mouse event will be invalid.  (atm, invalid bstates are recognized
+        # as scroll-down, so this avoids an erroneous scroll-down action)
+        curses.ungetmouse(0, 0, 0, 0, 0)
+    else:
+        curses.mousemask(0)
+
 
 class MouseEvent(object):
     PRESSED = [
@@ -42,7 +60,7 @@ class MouseEvent(object):
         if self.bstate & curses.BUTTON4_PRESSED:
             return -self.CTRL_SCROLLWHEEL_MULTIPLIER if self.ctrl() else -1
         elif self.bstate & curses.BUTTON2_PRESSED \
-                or self.bstate & 2**21 \
+                or self.bstate & 2 ** 21 \
                 or self.bstate > curses.ALL_MOUSE_EVENTS:
             return self.CTRL_SCROLLWHEEL_MULTIPLIER if self.ctrl() else 1
         return 0

@@ -7,7 +7,7 @@ from inspect import isfunction
 
 from ... import ycp
 from services.signals import SignalDispatcher
-from gui.colorscheme import _colorscheme_name_to_class
+from gui.colorscheme import colorscheme_name_to_class
 
 # Use these priority constants to trigger events at specific points in time
 # during processing of the signals "setopt" and "setopt.<some_setting_name>"
@@ -162,7 +162,7 @@ class Settings(SignalDispatcher):
                                 for i in value]
 
         elif name == 'colorscheme':
-            _colorscheme_name_to_class(signal)
+            colorscheme_name_to_class(signal)
 
         elif name == 'preview_script':
             if isinstance(value, str):
@@ -200,7 +200,7 @@ class Settings(SignalDispatcher):
 
     def _get_default(self, name):
         if name == 'preview_script':
-            if ycp.args.clean:
+            if ycp.args.clean:  # FIXME: Validate bash file and references om it
                 value = self.app.relpath('data/scope.sh')
             else:
                 value = self.app.confpath('scope.sh')
@@ -217,7 +217,7 @@ class Settings(SignalDispatcher):
             localpath = path
         else:
             try:
-                localpath = self.app.thisdir.path
+                localpath = self.app.thisdir.path  # FIXME: Refactor functionality
             except AttributeError:
                 localpath = None
 
@@ -268,47 +268,49 @@ class Settings(SignalDispatcher):
 
     def _check_type(self, name, value):
         typ = ALLOWED_SETTINGS[name]
-        if isfunction(typ):
+        if isfunction(typ):  # TODO: validate required attribute "typ"
+
             assert typ(value), \
                 "Warning: The option `" + name + "' has an incorrect type!"
         else:
             assert isinstance(value, typ), \
-                "Warning: The option `" + name + "' has an incorrect type!" \
-                                                 " Got " + str(type(value)) + ", expected " + str(typ) + "!" + \
-                " Please check if your commands.py is up to date." if not \
-                    self.app.ui.is_set_up else ""
-        return True
+                "Warning: The option `" + name + "' has an incorrect type!"" Got " \
+                + str(type(value)) + ", expected " + str(typ) + "!" + \
+                " Please check if your commands.py is up to date." if not self.app.ui.is_set_up else ""
+        return True  # FIXME: Validate app attribute
 
-    __getitem__ = __getattr__
+    __getitem__ = __getattr__  # FIXME: private and protected attribute access №2
     __setitem__ = __setattr__
 
-    def _raw_set(self, name, value, path=None, tags=None):
-        if path:
-            if path not in self._localsettings:
-                try:
-                    regex = re.compile(path)
-                except re.error:  # Bad regular expression
-                    return
-                self._localregexes[path] = regex
-                self._localsettings[path] = {}
-            self._localsettings[path][name] = value
 
-            # make sure name is in _settings, so __iter__ runs through
-            # local settings too.
-            if name not in self._settings:
-                type_ = self.types_of(name)[0]
-                value = DEFAULT_VALUES[type_]
-                self._settings[name] = value
-        elif tags:
-            for tag in tags:
-                if tag not in self._tagsettings:
-                    self._tagsettings[tag] = {}
-                self._tagsettings[tag][name] = value
-        else:
+def _raw_set(self, name, value, path=None, tags=None):
+    if path:
+        if path not in self._localsettings:
+            try:
+                regex = re.compile(path)
+            except re.error:  # Bad regular expression
+                return
+            self._localregexes[path] = regex
+            self._localsettings[path] = {}
+        self._localsettings[path][name] = value
+
+        # make sure name is in _settings, so __iter__ runs through
+        # local settings too.
+        if name not in self._settings:
+            type_ = self.types_of(name)[0]
+            value = DEFAULT_VALUES[type_]
             self._settings[name] = value
+    elif tags:
+        for tag in tags:
+            if tag not in self._tagsettings:
+                self._tagsettings[tag] = {}
+            self._tagsettings[tag][name] = value
+    else:
+        self._settings[name] = value
 
-    def _raw_set_with_signal(self, signal):
-        self._raw_set(signal.setting, signal.value, signal.path, signal.tags)
+
+def _raw_set_with_signal(self, signal):
+    self._raw_set(signal.setting, signal.value, signal.path, signal.tags)
 
 
 class LocalSettings(object):
@@ -317,7 +319,7 @@ class LocalSettings(object):
         self.__dict__['_parent'] = parent
         self.__dict__['_path'] = path
 
-    def __setattr__(self, name, value):
+    def __setattr__(self, name, value):  # FIXME: private and protected attribute access
         if name.startswith('_'):
             self.__dict__[name] = value
         else:
@@ -331,8 +333,8 @@ class LocalSettings(object):
         return self._parent.get(name, self._path)
 
     def __iter__(self):
-        for setting in self._parent._settings:
+        for setting in self._parent._settings:  # FIXME: Update reference
             yield setting
 
-    __getitem__ = __getattr__
+    __getitem__ = __getattr__  # FIXME: private and protected attribute access №2
     __setitem__ = __setattr__

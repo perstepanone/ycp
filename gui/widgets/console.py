@@ -7,11 +7,11 @@ import re
 from collections import deque
 from io import open
 
-from .... import PY3
-from gui.widgets import Widget
-from misc.utils.direction import Direction
-from misc.utils.widestring import uwid, WideString
-from misc.utils.history import History, HistoryEmptyException
+from ... import PY3, YCPDIR
+from . import Widget
+from gui.direction import Direction
+from misc.widestring import uwid, WideString
+from services.history import History, HistoryException
 
 
 class Console(Widget):
@@ -36,8 +36,8 @@ class Console(Widget):
         self.line = ''
         self.history = History(self.settings.max_console_history_size)
         # load history from files
-        if not ycp.args.clean:
-            self.historypath = self.fm.datapath('history')
+        if not YCPDIR.ycp.args.clean:
+            self.historypath = self.app.datapath('history')
             if os.path.exists(self.historypath):
                 try:
                     with open(self.historypath, "r", encoding="utf-8") as fobj:
@@ -45,13 +45,13 @@ class Console(Widget):
                             for line in fobj:
                                 self.history.add(line[:-1])
                         except UnicodeDecodeError as ex:
-                            self.fm.notify(
+                            self.app.notify(
                                 "Failed to parse corrupt history file",
                                 bad=True,
                                 exception=ex,
                             )
                 except (OSError, IOError) as ex:
-                    self.fm.notify(
+                    self.app.notify(
                         "Failed to read history file", bad=True, exception=ex
                     )
         self.history_backup = History(self.history)
@@ -71,7 +71,7 @@ class Console(Widget):
 
     def destroy(self):
         # save history to files
-        if ycp.args.clean or not self.settings.save_console_history:
+        if YCPDIR.ycp.args.clean or not self.settings.save_console_history:
             return
         if self.historypath:
             try:
@@ -82,7 +82,7 @@ class Console(Widget):
                         except UnicodeEncodeError:
                             pass
             except (OSError, IOError) as ex:
-                self.fm.notify(
+                self.app.notify(
                     "Failed to write history file", bad=True, exception=ex
                 )
         Widget.destroy(self)
@@ -111,7 +111,7 @@ class Console(Widget):
             self.addstr(0, len(self.prompt), str(line[x:]))
 
     def finalize(self):
-        move = self.fm.ui.win.move
+        move = self.app.ui.win.move
         if self.question_queue:
             try:
                 move(self.y, len(self.question_queue[0][0]))
@@ -171,7 +171,7 @@ class Console(Widget):
             except curses.error:
                 pass
             self.last_cursor_mode = None
-        self.fm.hide_console_info()
+        self.app.hide_console_info()
         self.add_to_history()
         self.tab_deque = None
         self.clear()
@@ -183,8 +183,8 @@ class Console(Widget):
         self.line = ''
 
     def press(self, key):
-        self.fm.ui.keymaps.use_keymap('console')
-        if not self.fm.ui.press(key):
+        self.app.ui.keymaps.use_keymap('console')
+        if not self.app.ui.press(key):
             self.type_key(key)
 
     def _answer_question(self, answer):
@@ -258,7 +258,7 @@ class Console(Widget):
     def history_move(self, n):
         try:
             current = self.history.current()
-        except HistoryEmptyException:
+        except HistoryException:
             pass
         else:
             if self.line != current and self.line != self.history.top():
@@ -297,8 +297,8 @@ class Console(Widget):
                     upos = len(self.question_queue[0][0][:self.pos].decode('utf-8', 'ignore'))
                     umax = len(uchar) + 1 - self.wid
                 else:
-                    uchar = list(self.line.decode('utf-8', 'ignore'))
-                    upos = len(self.line[:self.pos].decode('utf-8', 'ignore'))
+                    uchar = list(self.line.encode('utf-8', 'ignore'))
+                    upos = len(self.line[:self.pos].encode('utf-8', 'ignore'))
                     umax = len(uchar) + 1
                 newupos = direction.move(
                     direction=direction.right(),
@@ -318,12 +318,12 @@ class Console(Widget):
         """
         Returns a new position by moving word-wise in the line
 
-        >>> from ranger import PY3
+        >>> from ycp import PY3
         >>> if PY3:
         ...     line = "\\u30AA\\u30CF\\u30E8\\u30A6 world,  this is dog"
         ... else:
         ...     # Didn't get the unicode test to work on python2, even though
-        ...     # it works fine in ranger, even with unicode input...
+        ...     # it works fine in ycp, even with unicode input...
         ...     line = "ohai world,  this is dog"
         >>> Console.move_by_word(line, 0, -1)
         0
@@ -442,7 +442,7 @@ class Console(Widget):
         # Transpose substrings x & y of line
         # x & y are tuples of length two containing positions of endpoints
         if not 0 <= x[0] < x[1] <= y[0] < y[1] <= len(line):
-            self.fm.notify("Tried to transpose invalid regions.", bad=True)
+            self.app.notify("Tried to transpose invalid regions.", bad=True)
             return line
 
         line_begin = line[:x[0]]
@@ -477,8 +477,7 @@ class Console(Widget):
 
             # If in/after last word, interchange last two words
             if (re.match(r'[\w\d]*\s*$', self.line[self.pos:], re.UNICODE)
-                    and (re.match(r'[\w\d]', self.line[self.pos - 1], re.UNICODE)
-                    if self.pos - 1 >= 0 else True)):
+                    and (re.match(r'[\w\d]', self.line[self.pos - 1], re.UNICODE) if self.pos - 1 >= 0 else True)):
                 self.pos = self.move_by_word(self.line, self.pos, -1)
 
             # Util function to increment position until out of word/whitespace
@@ -524,7 +523,7 @@ class Console(Widget):
         if cmd:
             cmd.execute()
         else:
-            self.fm.execute_console(self.line)
+            self.app.execute_console(self.line)
 
         if self.allow_close:
             self._close_command_prompt(trigger_cancel_function=False)
@@ -536,12 +535,12 @@ class Console(Widget):
             return None
         except KeyError:
             if not quiet:
-                self.fm.notify("Command not found: `%s'" % self.line.split()[0], bad=True)
+                self.app.notify("Command not found: `%s'" % self.line.split()[0], bad=True)
             return None
         return command_class(self.line)
 
     def get_cmd_class(self):
-        return self.fm.commands.get_command(self.line.split()[0], abbrev=True)
+        return self.app.commands.get_command(self.line.split()[0], abbrev=True)
 
     def _get_tab(self, tabnum):
         if ' ' in self.line:
@@ -550,7 +549,7 @@ class Console(Widget):
                 return cmd.tab(tabnum)
             return None
 
-        return self.fm.commands.command_generator(self.line)
+        return self.app.commands.command_generator(self.line)
 
     def tab(self, tabnum=1):
         if self.tab_deque is None:

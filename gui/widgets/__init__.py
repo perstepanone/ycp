@@ -1,17 +1,21 @@
 # -*- coding: utf-8 -*-
 
 import curses
-from gui.curses_shortcuts import CursesShortcuts
+
+from ..curses_shortcuts import CursesShortcuts
 
 try:
     from bidi.algorithm import get_display
+
     HAVE_BIDI = True
 except ImportError:
     from bidi.algorithm import get_display
+
     HAVE_BIDI = False
 
 
-class Displayable:
+class Displayable(  # FIXME: disable=too-many-instance-attributes
+    CursesShortcuts):
     """Displayables are objects which are displayed on the screen.
 
     This is just the abstract class, defining basic operations
@@ -46,11 +50,8 @@ class Displayable:
         settings, app -- inherited shared variables
     """
 
-    def __init__(self,
-                 win,
-                 env=None,
-                 app=None,
-                 settings=None):
+    def __init__(self, win,  # FIXME: disable=super-init-not-called
+                 env=None, app=None, settings=None):
         from gui.ui import UI
 
         if env is not None:
@@ -77,6 +78,12 @@ class Displayable:
                 self.win = win
             else:
                 self.win = win.derwin(1, 1, 0, 0)
+
+    def __nonzero__(self):
+        """Always True"""
+        return True
+
+    __bool__ = __nonzero__
 
     def __contains__(self, item):
         """Checks if item is inside the boundaries.
@@ -155,7 +162,7 @@ class Displayable:
 
             if x < 0 or y < 0:
                 self.app.notify("Warning: Subwindow origin below zero for <%s> "
-                                "(x = %d, y = %d)" % (self, x, y), bad=True)
+                               "(x = %d, y = %d)" % (self, x, y), bad=True)
 
             if x + wid > maxx or y + hei > maxy:
                 self.app.notify(
@@ -214,7 +221,7 @@ class Displayable:
         return text
 
 
-class DisplayableContainer(Displayable, CursesShortcuts):
+class DisplayableContainer(Displayable):
     """DisplayableContainers are Displayables which contain other Displayables.
 
     This is also an abstract class. The methods draw, poke, finalize,
@@ -242,7 +249,9 @@ class DisplayableContainer(Displayable, CursesShortcuts):
 
         self.container = []
 
-        super().__init__(win)
+        Displayable.__init__(self, win)
+
+    # ------------------------------------ extended or overridden methods
 
     def poke(self):
         """Recursively called on objects in container"""
@@ -293,6 +302,8 @@ class DisplayableContainer(Displayable, CursesShortcuts):
         for displayable in self.container:
             displayable.destroy()
 
+    # ----------------------------------------------- new methods
+
     def add_child(self, obj):
         """Add the objects to the container."""
         if obj.parent:
@@ -315,7 +326,7 @@ class DisplayableContainer(Displayable, CursesShortcuts):
             obj.parent = None
 
     def get_focused_obj(self):
-        """Finds a focused displayable object in the container."""
+        # Finds a focused displayable object in the container.
         for displayable in self.container:
             if displayable.focused:
                 return displayable
@@ -327,3 +338,7 @@ class DisplayableContainer(Displayable, CursesShortcuts):
                 if obj is not None:
                     return obj
         return None
+
+
+class Widget:
+    pass  # FIXME: Add ellipsis attribute(or not)

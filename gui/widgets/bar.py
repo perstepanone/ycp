@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 
-from .. import PY3
-from misc.utils import WideString, utf_char_width
+from ... import PY3
+from misc.widestring import WideString, utf_char_width
 
 
 class Bar(object):
@@ -84,7 +84,7 @@ class Bar(object):
 
 class BarSide(list):
 
-    def __init__(self, base_color_tag):  # pylint: disable=super-init-not-called
+    def __init__(self, base_color_tag):       # FIXME: Inheritance
         self.base_color_tag = base_color_tag
 
     def add(self, string, *lst, **kw):

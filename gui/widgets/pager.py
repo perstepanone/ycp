@@ -3,8 +3,8 @@
 import curses
 
 from gui import ansi
-from misc.utils.direction import Direction
-from misc.utils.img_display import ImgDisplayUnsupportedException
+from gui.direction import Direction
+from misc.img_display import ImgDisplayUnsupportedException
 
 from gui.widgets import Widget
 
@@ -43,11 +43,11 @@ class Pager(Widget):
         self.markup = None
         self.max_width = 0
         self.startx = 0
-        self.need_redraw = True
+        self.need_redraw = True  # FIXME: Replace this attribute
 
     def clear_image(self, force=False):
         if (force or self.need_clear_image) and self.image_drawn:
-            self.fm.image_displayer.clear(self.x, self.y, self.wid, self.hei)
+            self.app.image_displayer.clear(self.x, self.y, self.wid, self.hei)
             self.need_clear_image = False
             self.image_drawn = False
 
@@ -62,13 +62,13 @@ class Pager(Widget):
         Widget.destroy(self)
 
     def finalize(self):
-        self.fm.ui.win.move(self.y, self.x)
+        self.app.ui.win.move(self.y, self.x)
 
     def scrollbit(self, lines):
         target_scroll = self.scroll_extra + lines
         max_scroll = len(self.lines) - self.hei
         self.scroll_extra = max(0, min(target_scroll, max_scroll))
-        self.need_redraw = True
+        self.need_redraw = True  # FIXME: Replace this attribute
 
     def draw(self):
         if self.need_clear_image:
@@ -97,20 +97,19 @@ class Pager(Widget):
                 for line, i in zip(line_gen, range(self.hei)):
                     self._draw_line(i, line)
 
-            self.need_redraw = False
+            self.need_redraw = False  # FIXME: Replace this attribute
 
     def draw_image(self):
         if self.image and self.need_redraw_image:
             self.source = None
             self.need_redraw_image = False
             try:
-                self.fm.image_displayer.draw(self.image, self.x, self.y,
-                                             self.wid, self.hei)
+                self.app.image_displayer.draw(self.image, self.x, self.y, self.wid, self.hei)
             except ImgDisplayUnsupportedException as ex:
-                self.fm.settings.preview_images = False
-                self.fm.notify(ex, bad=True)
+                self.app.settings.preview_images = False
+                self.app.notify(ex, bad=True)
             except Exception as ex:
-                self.fm.notify(ex, bad=True)
+                self.app.notify(ex, bad=True)
             else:
                 self.image_drawn = True
 
@@ -161,8 +160,8 @@ class Pager(Widget):
                 **movement)
 
     def press(self, key):
-        self.fm.ui.keymaps.use_keymap('pager')
-        self.fm.ui.press(key)
+        self.app.ui.keymaps.use_keymap('pager')
+        self.app.ui.press(key)
 
     def set_image(self, image):
         if self.image:
@@ -236,17 +235,15 @@ class Pager(Widget):
         while True:
             try:
                 line = self._get_line(i).expandtabs(4)
-                for part in ((0,) if not
-                self.fm.settings.wrap_plaintext_previews else
-                range(max(1, ((len(line) - 1) // self.wid) + 1))):
+                for part in ((0,) if not self.app.settings.wrap_plaintext_previews
+                else range(max(1, ((len(line) - 1) // self.wid) + 1))):  # FIXME: Refactor this line
                     shift = part * self.wid
                     if self.markup == 'ansi':
                         line_bit = (ansi.char_slice(line, startx + shift,
                                                     self.wid + shift)
                                     + ansi.reset)
                     else:
-                        line_bit = line[startx + shift:self.wid + startx
-                                                       + shift]
+                        line_bit = line[startx + shift:self.wid + startx + shift]
                     yield line_bit.rstrip().replace('\r\n', '\n')
             except IndexError:
                 return

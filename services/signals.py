@@ -74,7 +74,7 @@ class Signal(dict):
     stopped = False
 
     def __init__(self, **keywords):
-        dict.__init__(self, keywords)
+        dict.__init__(self, keywords)  # FIXME: Refactor assignment an handling of signals
         self.__dict__ = self
 
     def stop(self):
@@ -150,7 +150,7 @@ class SignalDispatcher(object):
         handlers.append(handler)
         if autosort:
             handlers.sort(
-                key=lambda handler: -handler.priority)
+                key=lambda handler: -handler.priority)  # TODO: Rename variable
         return handler
 
     # TODO: Do we still use this method? Should we remove it?
@@ -185,7 +185,7 @@ class SignalDispatcher(object):
         else:
             signal_handler.function = None
             try:
-                handlers.remove(signal_handler)
+                handlers.remove(signal_handler)  # FIXME: Refactor this call
             except IndexError:
                 pass
 
@@ -228,9 +228,9 @@ class SignalDispatcher(object):
                 handler = handler_list[i]
                 try:
                     if isinstance(handler.function, tuple):
-                        handler.function[1].__class__
+                        handler.function[1].__class__  # FIXME: Refactor this statement
                     else:
-                        handler.function.__class__
+                        handler.function.__class__  # FIXME: Refactor this statement
                 except ReferenceError:
                     handler.function = None
                     del handler_list[i]

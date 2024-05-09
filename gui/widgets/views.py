@@ -3,11 +3,11 @@
 
 import curses
 from config import settings
-from misc.utils.keybinding_parser import key_to_string
+from misc.keybinding_parser import key_to_string
 from . import Widget
 from column import BrowserColumn
 from pager import Pager
-from .displayable import DisplayableContainer
+from . import DisplayableContainer
 
 
 class View(Widget, DisplayableContainer):
@@ -18,7 +18,7 @@ class View(Widget, DisplayableContainer):
         self.draw_hints = False
         self.draw_info = False
         super(DisplayableContainer, self).__init__(self, win)
-        self.fm.signal_bind('move', self.request_clear)
+        self.app.signal_bind('move', self.request_clear)
         self.old_draw_borders = self.settings.draw_borders
         self.columns = None
         self.main_column = None
@@ -32,7 +32,7 @@ class View(Widget, DisplayableContainer):
             self.win.erase()
             self.need_redraw = True
             self.need_clear = False
-        for tab in self.fm.tabs.values():
+        for tab in self.app.tabs.values():
             directory = tab.thisdir
             if directory:
                 directory.load_content_if_outdated()
@@ -48,7 +48,7 @@ class View(Widget, DisplayableContainer):
     def finalize(self):
         if self.pager is not None and self.pager.visible:
             try:
-                self.fm.ui.win.move(self.main_column.y, self.main_column.x)
+                self.app.ui.win.move(self.main_column.y, self.main_column.x)
             except curses.error:
                 pass
         else:
@@ -57,21 +57,20 @@ class View(Widget, DisplayableContainer):
             if self.main_column.target:
                 col_y += self.main_column.target.pointer
             try:
-                self.fm.ui.win.move(col_y, col_x)
+                self.app.ui.win.move(col_y, col_x)
             except curses.error:
                 pass
 
-    def _draw_bookmarks(self):
+    def _draw_bookmarks(self):  # FIXME: Refactor/rename this method
         self.columns[-1].clear_image(force=True)
-        self.fm.bookmarks.update_if_outdated()
+        self.app.bookmarks.update_if_outdated()
         self.color_reset()
         self.need_clear = True
 
         sorted_bookmarks = sorted(
             (
-                item for item in self.fm.bookmarks
-                if self.fm.settings.show_hidden_bookmarks
-                   or '/.' not in item[1].path
+                item for item in self.app.bookmarks
+                if self.app.settings.show_hidden_bookmarks or '/.' not in item[1].path
             ),
             key=lambda t: t[0].lower(),
         )
@@ -112,19 +111,19 @@ class View(Widget, DisplayableContainer):
         hints = []
 
         def populate_hints(keymap, prefix=""):
-            for key, value in keymap.items():
-                key = prefix + key_to_string(key)
-                if isinstance(value, dict):
-                    populate_hints(value, key)
+            for k, v in keymap.items():  # FIXME: Refactor this attribute
+                k = prefix + key_to_string(k)
+                if isinstance(v, dict):
+                    populate_hints(v, k)
                 else:
-                    text = value
+                    text = v
                     if text.startswith('hint') or text.startswith('chain hint'):
                         continue
                     hints.append((key, text))
 
-        populate_hints(self.fm.ui.keybuffer.pointer)
+        populate_hints(self.app.ui.keybuffer.pointer)
 
-        def sort_hints(hints):
+        def sort_hints(hints):  # FIXME: Refactor or delete this method
             """Sort the hints by the action string but first group them by the
             first key.
 
@@ -150,7 +149,7 @@ class View(Widget, DisplayableContainer):
             grouped_hints = group_hints(hints)
 
             # If there are too many hints, collapse the sublists.
-            if len(hints) > self.fm.settings.hint_collapse_threshold:
+            if len(hints) > self.app.settings.hint_collapse_threshold:
                 def first_key_in_group(group):
                     return group[0][0][0]
 
@@ -194,10 +193,10 @@ class View(Widget, DisplayableContainer):
             self.main_column.scroll(direction)
         return False
 
-    def resize(self, y, x, hei=None, wid=None):
+    def resize(self, y, x, hei=None, wid=None):  # FIXME: Check up implementation
         DisplayableContainer.resize(self, y, x, hei, wid)
 
-    def poke(self):
+    def poke(self):  # FIXME: Check up implementation
         DisplayableContainer.poke(self)
 
 
@@ -247,8 +246,8 @@ class MillerView(View):
         last = 0.1 if self.settings.padding_right else 0
         if len(self.ratios) >= 2:
             self.stretch_ratios = self.ratios[:-2] + \
-                ((self.ratios[-2] + self.ratios[-1] * 1.0 - last),
-                 (self.ratios[-1] * last))
+                                  ((self.ratios[-2] + self.ratios[-1] * 1.0 - last),
+                                   (self.ratios[-1] * last))
 
         offset = 1 - len(ratios)
         if self.preview:
@@ -276,9 +275,9 @@ class MillerView(View):
     def draw(self):
         if self.need_clear:
             self.win.erase()
-            self.need_redraw = True
+            self.need_redraw = True  # FIXME: Replace or/and rename attribute
             self.need_clear = False
-        for tab in self.fm.tabs.values():
+        for tab in self.app.tabs.values():
             directory = tab.thisdir
             if directory:
                 directory.load_content_if_outdated()
@@ -286,7 +285,7 @@ class MillerView(View):
         DisplayableContainer.draw(self)
         if self.settings.draw_borders:
             draw_borders = self.settings.draw_borders.lower()
-            if draw_borders in ['both', 'true']:   # 'true' for backwards compat.
+            if draw_borders in ['both', 'true']:  # 'true' for backwards compat.
                 border_types = ['separators', 'outline']
             else:
                 border_types = [draw_borders]
@@ -373,10 +372,10 @@ class MillerView(View):
         result = not self.columns[-1].has_preview()
         target = self.columns[-1].target
         if not result and target and target.is_file:
-            if self.fm.settings.preview_script and \
-                    self.fm.settings.use_preview_script:
+            if self.app.settings.preview_script and \
+                    self.app.settings.use_preview_script:
                 try:
-                    result = not self.fm.previews[target.realpath]['foundpreview']
+                    result = not self.app.previews[target.realpath]['foundpreview']
                 except KeyError:
                     return self.old_collapse
 
@@ -459,7 +458,7 @@ class MillerView(View):
             self.columns[-1].visible = True
 
         if self.preview and self.is_collapsed != self._collapse():
-            if self.fm.settings.preview_files:
+            if self.app.settings.preview_files:
                 # force clearing the image when resizing preview column
                 self.columns[-1].clear_image(force=True)
             self.resize(self.y, self.x, self.hei, self.wid)
@@ -473,8 +472,8 @@ class MultipaneView(View):
 
     def __init__(self):
         super(View, self).__init__(self, win)
-        self.fm.signal_bind('tab.layoutchange', self._layoutchange_handler)
-        self.fm.signal_bind('tab.change', self._tabchange_handler)
+        self.app.signal_bind('tab.layoutchange', self._layoutchange_handler)
+        self.app.signal_bind('tab.change', self._tabchange_handler)
         self.rebuild()
 
         self.old_draw_borders = self._draw_borders_setting()
@@ -489,11 +488,11 @@ class MultipaneView(View):
             return self.settings.draw_borders
 
     def _layoutchange_handler(self):
-        if self.fm.ui.browser == self:
+        if self.app.ui.browser == self:
             self.rebuild()
 
     def _tabchange_handler(self, signal):
-        if self.fm.ui.browser == self:
+        if self.app.ui.browser == self:
             if signal.old:
                 signal.old.need_redraw = True
             if signal.new:
@@ -505,11 +504,11 @@ class MultipaneView(View):
         for child in self.container:
             self.remove_child(child)
             child.destroy()
-        for name, tab in self.fm.tabs.items():
+        for name, tab in self.app.tabs.items():
             column = BrowserColumn(self.win, 0, tab=tab)
             column.main_column = True
             column.display_infostring = True
-            if name == self.fm.current_tab:
+            if name == self.app.current_tab:
                 self.main_column = column
             self.columns.append(column)
             self.add_child(column)
@@ -518,14 +517,14 @@ class MultipaneView(View):
     def draw(self):
         if self.need_clear:
             self.win.erase()
-            self.need_redraw = True
+            self.need_redraw = True  # FIXME: Rename or/and replace attribute
             self.need_clear = False
 
         View.draw(self)
 
         if self._draw_borders_setting():
             draw_borders = self._draw_borders_setting()
-            if draw_borders in ['both', 'true']:   # 'true' for backwards compat.
+            if draw_borders in ['both', 'true']:  # 'true' for backwards compat.
                 border_types = ['separators', 'outline']
             else:
                 border_types = [draw_borders]
@@ -604,7 +603,7 @@ class MultipaneView(View):
             column.resize(top + pad, left, hei - pad * 2, max(1, column_width))
             left += column_width + 1
             column.need_redraw = True
-        self.need_redraw = True
+        self.need_redraw = True  # FIXME: Rename or/and replace attribute
 
     def poke(self):
         View.poke(self)

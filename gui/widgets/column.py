@@ -5,8 +5,13 @@ import curses
 import stat
 from time import time
 from os.path import splitext
+from bidi.algorithm import get_display as get_bidi_text
 
-from gui.widgets import Pager, Widget
+from gui.widgets import Widget
+from gui.widgets.pager import Pager
+from misc.widestring import WideString
+
+DEFAULT_ROWMODE = "filename"
 
 
 def hook_before_drawing(fsobject, color_list):
@@ -21,9 +26,9 @@ class BrowserColumn(Pager, Widget):
             win = the curses window object of the BrowserView
             level = what to display?
 
-            level >0 => previews
-            level 0 => current file/directory
-            level <0 => parent directories
+            level >0 => submenu
+            level 0 => current menu
+            level <0 => upper menu
             """
         self.main_column = False
         self.display_infostring = False
@@ -63,15 +68,15 @@ class BrowserColumn(Pager, Widget):
 
                 if direction:
                     if self.level == -1:
-                        self.fm.move_parent(direction)
+                        self.app.move_parent(direction)  # FIXME: Refactor functionality
                     else:
                         return False
                 elif event.pressed(1):
                     if not self.main_column:
-                        self.fm.enter_dir(self.target.path)
+                        self.app.enter_dir(self.target.path)  # FIXME: Refactor functionality
 
                     if index < len(self.target):
-                        self.fm.move(to=index)
+                        self.app.move(to=index)
                 elif event.pressed(3):
                     try:
                         clicked_file = self.target.files[index]
@@ -79,18 +84,18 @@ class BrowserColumn(Pager, Widget):
                         pass
                     else:
                         if clicked_file.is_directory:
-                            self.fm.enter_dir(clicked_file.path, remember=True)
+                            self.app.enter_dir(clicked_file.path, remember=True)
                         elif self.level == 0:
-                            self.fm.thisdir.move_to_obj(clicked_file)
-                            self.fm.execute_file(clicked_file)
+                            self.app.thisdir.move_to_obj(clicked_file)
+                            self.app.execute_file(clicked_file)
         elif self.target.is_file:
             if event.pressed(3):
-                self.fm.execute_file(self.target)
+                self.app.execute_file(self.target)
             else:
                 self.scrollbit(direction)
         else:
             if self.level > 0 and not direction:
-                self.fm.move(right=0)
+                self.app.move(right=0)
 
         return True
 
@@ -135,13 +140,13 @@ class BrowserColumn(Pager, Widget):
     def poke(self):
         Widget.poke(self)
         if self.tab is None:
-            tab = self.fm.thistab
+            tab = self.app.thistab
         else:
             tab = self.tab
         self.target = tab.at_level(self.level)
 
     def draw(self):
-        """Call either _draw_file() or _draw_directory()"""
+        """Call either _draw_file() or _draw_directory()"""  # FIXME: Update method names
         target = self.target
 
         if target != self.old_dir:
@@ -179,7 +184,7 @@ class BrowserColumn(Pager, Widget):
             self.need_redraw = False
             self.last_redraw_time = time()
 
-    def _draw_file(self):
+    def _draw_file(self):  # FIXME: Refactor/rename this method
         """Draw a preview of the file, if the settings allow it"""
         self.win.move(0, 0)
         if self.target is None or not self.target.has_preview():
@@ -215,8 +220,8 @@ class BrowserColumn(Pager, Widget):
 
         return linum_format.format(line_number)
 
-    def _draw_directory(self):
-        """Draw the contents of a directory"""
+    def _draw_directory(self):  # FIXME:Refactor/rename this method
+        """Draw the contents of a menu"""
         if self.image:
             self.image = None
             self.need_clear_image = True
@@ -227,8 +232,8 @@ class BrowserColumn(Pager, Widget):
 
         base_color = ['in_browser']
 
-        if self.fm.ui.viewmode == 'multipane' and self.tab is not None:
-            active_pane = self.tab == self.fm.thistab
+        if self.app.ui.viewmode == 'multipane' and self.tab is not None:
+            active_pane = self.tab == self.app.thistab
             if active_pane:
                 base_color.append('active_pane')
             else:
@@ -261,7 +266,7 @@ class BrowserColumn(Pager, Widget):
 
         self._set_scroll_begin()
 
-        copied = [f.path for f in self.fm.copy_buffer]
+        copied = [f.path for f in self.app.copy_buffer]
 
         selected_i = self._get_index_of_selected_file()
 
@@ -294,9 +299,9 @@ class BrowserColumn(Pager, Widget):
             except IndexError:
                 break
 
-            tagged = self.fm.tags and drawn.realpath in self.fm.tags
+            tagged = self.app.tags and drawn.realpath in self.app.tags
             if tagged:
-                tagged_marker = self.fm.tags.marker(drawn.realpath)
+                tagged_marker = self.app.tags.marker(drawn.realpath)
             else:
                 tagged_marker = " "
 
@@ -304,16 +309,16 @@ class BrowserColumn(Pager, Widget):
             metadata = None
             current_linemode = drawn.linemode_dict[drawn.linemode]
             if current_linemode.uses_metadata:
-                metadata = self.fm.metadata.get_metadata(drawn.path)
+                metadata = self.app.metadata.get_metadata(drawn.path)
                 if not all(getattr(metadata, tag)
                            for tag in current_linemode.required_metadata):
-                    current_linemode = drawn.linemode_dict[linemode.DEFAULT_LINEMODE]
+                    current_linemode = drawn.linemode_dict[DEFAULT_ROWMODE]
 
             metakey = hash(repr(sorted(metadata.items()))) if metadata else 0
             key = (self.wid, selected_i == i, drawn.marked, self.main_column,
                    drawn.path in copied, tagged_marker, drawn.infostring,
                    drawn.vcsstatus, drawn.vcsremotestatus, self.target.has_vcschild,
-                   self.fm.do_cut, current_linemode.name, metakey, active_pane,
+                   self.app.do_cut, current_linemode.name, metakey, active_pane,
                    self.settings.line_numbers.lower(), linum_text_len)
 
             # Check if current line has not already computed and cached
@@ -377,7 +382,7 @@ class BrowserColumn(Pager, Widget):
 
             # info string
             infostring = []
-            infostringlen = 0
+            infostringlen = 0  # FIXME: Replace/delete attribute
             try:
                 infostringdata = current_linemode.infostring(drawn, metadata)
                 if infostringdata:
@@ -405,8 +410,7 @@ class BrowserColumn(Pager, Widget):
             # Computing display data. Now we compute the display_data list
             # ready to display in curses. It is a list of lists [string, attr]
 
-            this_color = base_color + list(drawn.mimetype_tuple) + \
-                         self._draw_directory_color(i, drawn, copied)
+            this_color = base_color + list(drawn.mimetype_tuple) + self._draw_directory_color(i, drawn, copied)
             display_data = []
             drawn.display_data[key] = display_data
 
@@ -421,7 +425,7 @@ class BrowserColumn(Pager, Widget):
             self.color_reset()
 
     def _get_index_of_selected_file(self):
-        if self.fm.ui.viewmode == 'multipane' and self.tab != self.fm.thistab:
+        if self.app.ui.viewmode == 'multipane' and self.tab != self.app.thistab:
             return self.tab.pointer
         return self.target.pointer
 
@@ -430,7 +434,7 @@ class BrowserColumn(Pager, Widget):
         return sum(len(WideString(s)) for s, _ in predisplay)
 
     def _draw_text_display(self, text, space):
-        bidi_text = self.bidi_transpose(text)
+        bidi_text = get_bidi_text(text)
         wtext = WideString(bidi_text)
         wext = WideString(splitext(bidi_text)[1])
         wellip = WideString(self.ellipsis[self.settings.unicode_ellipsis])
@@ -465,7 +469,7 @@ class BrowserColumn(Pager, Widget):
         vcsstring_display = []
         if (self.target.vcs and self.target.vcs.track) \
                 or (drawn.is_directory and drawn.vcs and drawn.vcs.track):
-            if drawn.vcsremotestatus:
+            if drawn.vcsremotestatus:  # FIXME: VCS references
                 vcsstr, vcscol = self.vcsremotestatus_symb[drawn.vcsremotestatus]
                 vcsstring_display.append([vcsstr, ['vcsremote'] + vcscol])
             elif self.target.has_vcschild:
@@ -488,7 +492,7 @@ class BrowserColumn(Pager, Widget):
         if drawn.marked:
             this_color.append('marked')
 
-        if self.fm.tags and drawn.realpath in self.fm.tags:
+        if self.app.tags and drawn.realpath in self.app.tags:
             this_color.append('tagged')
 
         if drawn.is_directory:
@@ -508,7 +512,7 @@ class BrowserColumn(Pager, Widget):
                 this_color.append('device')
 
         if drawn.path in copied:
-            this_color.append('cut' if self.fm.do_cut else 'copied')
+            this_color.append('cut' if self.app.do_cut else 'copied')
 
         if drawn.is_link:
             this_color.append('link')

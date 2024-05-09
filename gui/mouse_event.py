@@ -2,7 +2,7 @@
 
 import curses
 
-MOUSEMASK = curses.ALL_MOUSE_EVENTS | curses.REPORT_MOUSE_POSITION
+MOUSEMASK = curses.ALL_MOUSE_EVENTS | curses.REPORT_MOUSE_POSITION  # FIXME: Update reference
 
 
 def _setup_mouse(signal):
@@ -24,7 +24,7 @@ def _setup_mouse(signal):
 class MouseEvent(object):
     PRESSED = [
         0,
-        curses.BUTTON1_PRESSED,
+        curses.BUTTON1_PRESSED,  # FIXME: Update reference
         curses.BUTTON2_PRESSED,
         curses.BUTTON3_PRESSED,
         curses.BUTTON4_PRESSED,

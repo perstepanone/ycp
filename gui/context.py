@@ -26,7 +26,7 @@ CONTEXT_KEYS = [
 ]
 
 
-class Context(object):  # pylint: disable=too-few-public-methods
+class Context(object):  # FIXME: Reduce public methods
 
     def __init__(self, keys):
         # set all given keys to True

@@ -29,7 +29,7 @@ from abc import abstractmethod
 from curses import color_pair
 from io import open
 
-from .. import YCPDIR
+from .. import YCPDIR, CONFDIR
 from gui.color import get_color
 from gui.context import Context
 from misc.utils import allow_access_to_confdir, flatten
@@ -79,7 +79,7 @@ class ColorScheme(object):
         return 1, -1, 0
 
 
-def _colorscheme_name_to_class(signal):
+def colorscheme_name_to_class(signal):
     # Find the colorscheme.  First look in ~/.config/ycp/colorschemes,
     # then at YCPDIR/colorschemes.  If the file contains a class
     # named Scheme, it is used.  Otherwise, an arbitrary other class
@@ -91,7 +91,7 @@ def _colorscheme_name_to_class(signal):
         signal.value = 'default'
 
     scheme_name = signal.value
-    usecustom = not args.clean
+    usecustom = not YCPDIR.args.clean  # FIXME: Reference
 
     def exists(colorscheme):
         return os.path.exists(colorscheme + '.py') or os.path.exists(colorscheme + '.pyc')
@@ -127,11 +127,11 @@ def _colorscheme_name_to_class(signal):
         raise ColorSchemeError("Cannot locate colorscheme `%s'" % scheme_name)
     else:
         if usecustom:
-            allow_access_to_confdir(args.confdir, True)
+            allow_access_to_confdir(CONFDIR, True)
         scheme_module = getattr(
             __import__(scheme_supermodule, globals(), locals(), [scheme_name], 0), scheme_name)
         if usecustom:
-            allow_access_to_confdir(args.confdir, False)
+            allow_access_to_confdir(CONFDIR, False)
         if hasattr(scheme_module, 'Scheme') and is_scheme(scheme_module.Scheme):
             signal.value = scheme_module.Scheme()
         else:

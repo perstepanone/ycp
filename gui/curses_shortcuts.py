@@ -10,8 +10,9 @@ REVERSE_ADDCH_ARGS = sys.version[0:5] == '3.7.0'
 
 
 def _fix_surrogates(args):
-    return [isinstance(arg, str) and arg.encode('utf-8', 'surrogateescape')
-            .decode('utf-8', 'replace') or arg for arg in args]
+    return [isinstance(arg, str) and arg.encode('utf-8',
+                                                'surrogateescape').decode('utf-8', 'replace')
+            or arg for arg in args]
 
 
 class CursesShortcuts:
@@ -65,7 +66,7 @@ class CursesShortcuts:
 
     def color(self, *keys):
         """Change the colors from now on."""
-        attr = self.settings.colorscheme.get_attr(*keys)
+        attr = self.settings.colorscheme.get_attr(*keys)  # FIXME: Reference
         try:
             self.win.attrset(attr)
         except curses.error:
@@ -73,7 +74,7 @@ class CursesShortcuts:
 
     def color_at(self, y, x, wid, *keys):
         """Change the colors at the specified position"""
-        attr = self.settings.colorscheme.get_attr(*keys)
+        attr = self.settings.colorscheme.get_attr(*keys)  # FIXME: Reference
         try:
             self.win.chgat(y, x, wid, attr)
         except curses.error:

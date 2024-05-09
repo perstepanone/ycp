@@ -15,7 +15,7 @@ def allow_access_to_confdir(confdir, allow):
             if err.errno != EEXIST:  # EEXIST means it already exists
                 print("This configuration directory could not be created:")
                 print(confdir)
-                print("To run ranger without the need for configuration")
+                print("To run ycp without the need for configuration")
                 print("files, use the --clean option.")
                 raise SystemExit
         else:

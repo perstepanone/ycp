@@ -1,22 +1,32 @@
 # -*- coding: utf-8 -*-
 
+from os.path import abspath
 import re
+from itertools import zip_longest
+
+from misc.hash import hash_chunks
 
 SIMPLE_FILTERS = {}
 FILTER_COMBINATORS = {}
 
 
-def accept_file(fobj, filters):
+class InodeFilterConstants:
+    DIRS = "d"
+    FILES = "f"
+    LINKS = "l"
+
+
+def accept_file(vobj, filters):
     """
     Returns True if file shall be shown, otherwise False.
     Parameters:
-        fobj - an instance of FileSystemObject
-        filters - an array of lambdas, each expects a fobj and
-                  returns True if fobj shall be shown,
+        vobj - an instance of VideoObject
+        filters - an array of lambdas, each expects a vobj and
+                  returns True if vobj shall be shown,
                   otherwise False.
     """
     for filt in filters:
-        if filt and not filt(fobj):
+        if filt and not filt(vobj):
             return False
     return True
 
@@ -37,10 +47,10 @@ def filter_combinator(combinator_name):
     return decorator
 
 
-def group_by_hash(fsobjects):
+def group_by_hash(vobjects):
     hashes = {}
-    for fobj in fsobjects:
-        chunks = hash_chunks(fobj.path)
+    for vobj in vobjects:
+        chunks = hash_chunks(vobj.path)
         chunk = next(chunks)
         while chunk in hashes:
             for dup in hashes[chunk]:
@@ -53,10 +63,10 @@ def group_by_hash(fsobjects):
             try:
                 chunk = next(chunks)
             except StopIteration:
-                hashes[chunk].append((fobj, chunks))
+                hashes[chunk].append((vobj, chunks))
                 break
         else:
-            hashes[chunk] = [(fobj, chunks)]
+            hashes[chunk] = [(vobj, chunks)]
 
     groups = []
     for dups in hashes.values():
@@ -79,8 +89,8 @@ class NameFilter(BaseFilter):
     def __init__(self, pattern):
         self.regex = re.compile(pattern)
 
-    def __call__(self, fobj):
-        return self.regex.search(fobj.relative_path)
+    def __call__(self, vobj):
+        return self.regex.search(vobj.relative_path)
 
     def __str__(self):
         return "<Filter: name =~ /{pat}/>".format(pat=self.regex.pattern)
@@ -91,8 +101,8 @@ class MimeFilter(BaseFilter):
     def __init__(self, pattern):
         self.regex = re.compile(pattern)
 
-    def __call__(self, fobj):
-        mimetype, _ = self.fm.mimetypes.guess_type(fobj.relative_path)
+    def __call__(self, vobj):
+        mimetype, _ = self.app.mimetypes.guess_type(vobj.relative_path)  # FIXME: resolve dependency
         if mimetype is None:
             return False
         return self.regex.search(mimetype)
@@ -105,19 +115,19 @@ class MimeFilter(BaseFilter):
 class HashFilter(BaseFilter):
     def __init__(self, filepath=None):
         if filepath is None:
-            self.filepath = self.fm.thisfile.path
+            self.filepath = self.app.thisfile.path  # FIXME: resolve dependencies with reference
         else:
             self.filepath = filepath
         if self.filepath is None:
-            self.fm.notify("Error: No file selected for hashing!", bad=True)
+            self.app.notify("Error: No file selected for hashing!", bad=True)
         # TODO: Lazily generated list would be more efficient, a generator
         #       isn't enough because this object is reused for every fsobject
         #       in the current directory.
         self.filehash = list(hash_chunks(abspath(self.filepath)))
 
-    def __call__(self, fobj):
+    def __call__(self, vobj):
         for (chunk1, chunk2) in zip_longest(self.filehash,
-                                            hash_chunks(fobj.path),
+                                            hash_chunks(vobj.path),
                                             fillvalue=''):
             if chunk1 != chunk2:
                 return False
@@ -132,15 +142,15 @@ class DuplicateFilter(BaseFilter):
     def __init__(self, _):
         self.duplicates = self.get_duplicates()
 
-    def __call__(self, fobj):
-        return fobj in self.duplicates
+    def __call__(self, vobj):
+        return vobj in self.duplicates
 
     def __str__(self):
         return "<Filter: duplicate>"
 
     def get_duplicates(self):
         duplicates = set()
-        for dups in group_by_hash(self.fm.thisdir.files_all):
+        for dups in group_by_hash(self.app.thisdir.files_all):  # FIXME: resolve dependencies with reference
             if len(dups) >= 2:
                 duplicates.update(dups)
         return duplicates
@@ -151,17 +161,17 @@ class UniqueFilter(BaseFilter):
     def __init__(self, _):
         self.unique = self.get_unique()
 
-    def __call__(self, fobj):
-        return fobj in self.unique
+    def __call__(self, vobj):
+        return vobj in self.unique
 
     def __str__(self):
         return "<Filter: unique>"
 
     def get_unique(self):
         unique = set()
-        for dups in group_by_hash(self.fm.thisdir.files_all):
+        for dups in group_by_hash(self.app.thisdir.files_all):  # FIXME: resolve dependencies with reference
             try:
-                unique.add(min(dups, key=lambda fobj: fobj.stat.st_ctime))
+                unique.add(min(dups, key=lambda vobj: vobj.stat.st_ctime))
             except ValueError:
                 pass
         return unique
@@ -171,11 +181,11 @@ class UniqueFilter(BaseFilter):
 class TypeFilter(BaseFilter):
     type_to_function = {
         InodeFilterConstants.DIRS:
-            (lambda fobj: fobj.is_directory),
+            (lambda vobj: vobj.is_directory),
         InodeFilterConstants.FILES:
-            (lambda fobj: fobj.is_file and not fobj.is_link),
+            (lambda vobj: vobj.is_file and not vobj.is_link),
         InodeFilterConstants.LINKS:
-            (lambda fobj: fobj.is_link),
+            (lambda vobj: vobj.is_link),
     }
 
     def __init__(self, filetype):
@@ -183,8 +193,8 @@ class TypeFilter(BaseFilter):
             raise KeyError(filetype)
         self.filetype = filetype
 
-    def __call__(self, fobj):
-        return self.type_to_function[self.filetype](fobj)
+    def __call__(self, vobj):
+        return self.type_to_function[self.filetype](vobj)
 
     def __str__(self):
         return "<Filter: type == '{ft}'>".format(ft=self.filetype)
@@ -200,11 +210,11 @@ class OrFilter(BaseFilter):
 
         stack.append(self)
 
-    def __call__(self, fobj):
+    def __call__(self, vobj):
         # Turn logical AND (accept_file()) into a logical OR with the
         # De Morgan's laws.
         return not accept_file(
-            fobj,
+            vobj,
             ((lambda x, f=filt: not f(x))
              for filt
              in self.subfilters),
@@ -228,8 +238,8 @@ class AndFilter(BaseFilter):
 
         stack.append(self)
 
-    def __call__(self, fobj):
-        return accept_file(fobj, self.subfilters)
+    def __call__(self, vobj):
+        return accept_file(vobj, self.subfilters)
 
     def __str__(self):
         return "<Filter: {comp}>".format(
@@ -245,8 +255,8 @@ class NotFilter(BaseFilter):
         self.subfilter = stack.pop()
         stack.append(self)
 
-    def __call__(self, fobj):
-        return not self.subfilter(fobj)
+    def __call__(self, vobj):
+        return not self.subfilter(vobj)
 
     def __str__(self):
         return "<Filter: not {exp}>".format(exp=str(self.subfilter))

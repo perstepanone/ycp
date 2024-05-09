@@ -7,13 +7,13 @@ from pwd import getpwuid
 from grp import getgrgid
 from time import time, strftime, localtime
 
-from ranger.ext.human_readable import human_readable
-from ranger.gui.bar import Bar
+from misc.human_readable import human_readable
+from gui.bar import Bar
 
-from gui import Widget
+from . import Widget
 
 
-class StatusBar(Widget):
+class StatusBar(Widget):  # FIXME: Refactor this class
 
     def __init__(self, win, column=None):
         self.owners = {}
@@ -30,8 +30,8 @@ class StatusBar(Widget):
         self.column = column
         self.settings.signal_bind('setopt.display_size_in_status_bar',
                                   self.request_redraw, weak=True)
-        self.fm.signal_bind('tab.layoutchange', self.request_redraw, weak=True)
-        self.fm.signal_bind('setop.viewmode', self.request_redraw, weak=True)
+        self.app.signal_bind('tab.layoutchange', self.request_redraw, weak=True)
+        self.app.signal_bind('setop.viewmode', self.request_redraw, weak=True)
 
     def request_redraw(self):
         self.need_redraw = True
@@ -45,8 +45,8 @@ class StatusBar(Widget):
     def draw(self):
         """Draw the statusbar"""
 
-        if self.column != self.fm.ui.browser.main_column:
-            self.column = self.fm.ui.browser.main_column
+        if self.column != self.app.ui.browser.main_column:
+            self.column = self.app.ui.browser.main_column
             self.need_redraw = True
 
         if self.hint and isinstance(self.hint, str):
@@ -68,10 +68,10 @@ class StatusBar(Widget):
                 self.msg = None
                 self.need_redraw = True
 
-        if self.fm.thisfile:
-            self.fm.thisfile.load_if_outdated()
+        if self.app.thisfile:
+            self.app.thisfile.load_if_outdated()
             try:
-                ctime = self.fm.thisfile.stat.st_ctime
+                ctime = self.app.thisfile.stat.st_ctime
             except AttributeError:
                 ctime = -1
         else:
@@ -80,12 +80,12 @@ class StatusBar(Widget):
         if not self.result:
             self.need_redraw = True
 
-        if self.old_du and not self.fm.thisdir.disk_usage:
-            self.old_du = self.fm.thisdir.disk_usage
+        if self.old_du and not self.app.thisdir.disk_usage:
+            self.old_du = self.app.thisdir.disk_usage
             self.need_redraw = True
 
-        if self.old_thisfile != self.fm.thisfile:
-            self.old_thisfile = self.fm.thisfile
+        if self.old_thisfile != self.app.thisfile:
+            self.old_thisfile = self.app.thisfile
             self.need_redraw = True
 
         if self.old_ctime != ctime:
@@ -138,7 +138,7 @@ class StatusBar(Widget):
                 and self.column.target.is_directory:
             target = self.column.target.pointed_obj
         else:
-            directory = self.fm.thistab.at_level(0)
+            directory = self.app.thistab.at_level(0)
             if directory:
                 target = directory.pointed_obj
             else:
@@ -150,8 +150,8 @@ class StatusBar(Widget):
         if stat is None:
             return
 
-        if self.fm.mode != 'normal':
-            perms = '--%s--' % self.fm.mode.upper()
+        if self.app.mode != 'normal':
+            perms = '--%s--' % self.app.mode.upper()
         else:
             perms = target.get_permission_string()
         how = 'good' if getuid() == stat.st_uid else 'bad'
@@ -184,7 +184,7 @@ class StatusBar(Widget):
             left.add(date, 'mtime')
 
         directory = target if target.is_directory else \
-            target.fm.get_directory(os.path.dirname(target.path))
+            target.app.get_directory(os.path.dirname(target.path))
         if directory.vcs and directory.vcs.track:
             if directory.vcs.rootvcs.branch:
                 vcsinfo = '({0:s}: {1:s})'.format(
@@ -204,7 +204,8 @@ class StatusBar(Widget):
                 left.add(vcsstr.strip(), 'vcsfile', *vcscol)
             if directory.vcs.rootvcs.head:
                 left.add_space()
-                left.add(directory.vcs.rootvcs.head['date'].strftime(self.timeformat), 'vcsdate')
+                left.add(directory.vcs.rootvcs.head['date'].strftime(self.timeformat),
+                         'vcsdate')  # FIXME: Update/delete this reference
                 left.add_space()
                 summary_length = self.settings.vcs_msg_length or 50
                 left.add(
@@ -253,18 +254,18 @@ class StatusBar(Widget):
 
         right.add(" ", "space")
 
-        if self.fm.thisdir.flat:
+        if self.app.thisdir.flat:
             right.add("flat=", base, 'flat')
-            right.add(str(self.fm.thisdir.flat), base, 'flat')
+            right.add(str(self.app.thisdir.flat), base, 'flat')
             right.add(", ", "space")
 
-        if self.fm.thisdir.narrow_filter:
+        if self.app.thisdir.narrow_filter:
             right.add("narrowed")
             right.add(", ", "space")
 
-        if self.fm.thisdir.filter:
+        if self.app.thisdir.filter:
             right.add("f=`", base, 'filter')
-            right.add(self.fm.thisdir.filter.pattern, base, 'filter')
+            right.add(self.app.thisdir.filter.pattern, base, 'filter')
             right.add("', ", "space")
 
         if target.marked_items:
@@ -317,7 +318,7 @@ class StatusBar(Widget):
             self.addstr(str(part))
 
         if self.settings.draw_progress_bar_in_status_bar:
-            queue = self.fm.loader.queue
+            queue = self.app.loader.queue
             states = []
             for item in queue:
                 if item.progressbar_supported:

@@ -2,7 +2,7 @@
 """A library to help to convert ANSI codes to curses instructions."""
 
 import re
-from misc.utils import WideString
+from misc.widestring import WideString
 from gui import color
 
 ansi_re = re.compile('(\x1b' + r'\[\d*(?:;\d+)*?[a-zA-Z])')
@@ -87,7 +87,7 @@ def text_with_fg_bg_attr(ansi_text):
                 elif n == 109:
                     bg = -1
 
-            yield (fg, bg, attr)
+            yield fg, bg, attr
 
         else:
             yield chunk
@@ -136,7 +136,7 @@ def char_slice(ansi_text, start, length):
     """
     chunks = []
     last_color = ""
-    pos = old_pos = 0
+    pos = old_pos = 0  # FIXME:Deprecated variable
     for i, chunk in enumerate(split_ansi_from_text(ansi_text)):
         if i % 2 == 1:
             last_color = chunk

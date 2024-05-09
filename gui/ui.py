@@ -2,28 +2,33 @@
 
 import threading
 import os
+import sys
 import curses
 
 from gui.displayable import DisplayableContainer
+from misc.keybinding_parser import KeyBuffer, KeyLayout
 from mouse_event import MouseEvent, _setup_mouse
 
 ESCAPE_ICON_TITLE = '\033]1;'
+ALLOWED_VIEWMODES = 'miller', 'multipane'
 
 
 # TODO: add mice support
 class UI(DisplayableContainer):
-    def __init__(self, app=None):
+    def __init__(self, win, env, app, settings):
+        super().__init__(win, env, app, settings)
         self.is_setup = False
         self.is_on = False
         self.termsize = None
         self.keybuffer = KeyBuffer()
-        self.keymaps = KeyMaps(self.keybuffer)
+        self.keylayouts = KeyLayout(self.keybuffer)
         self.redrawlock = threading.Event()
         self.redrawlock.set()
 
         self.titlebar = None
         self._viewmode = None
-        self.procmngr = None
+        self.selection_mode = None
+        self.taskmngr = None
         self.status = None
         self.console = None
         self.pager = None
@@ -41,13 +46,13 @@ class UI(DisplayableContainer):
             if ex.args[0] == "setupterm: could not find terminal":
                 os.environ['TERM'] = 'linux'
                 self.win = curses.initscr()
-        self.keymaps.use_keymap('browser')
+        self.keylayouts.use_layout('browser')
         super().__init__(self, None)
 
     def initialize(self):
         """initialize curses, then call setup (at the first time) and resize."""
-        self.win.leaveok(0)
-        self.win.keypad(1)
+        self.win.leaveok(False)
+        self.win.keypad(True)
         self.load_mode = False
 
         curses.cbreak()
@@ -83,7 +88,7 @@ class UI(DisplayableContainer):
         if self.app.image_displayer:
             self.app.image_displayer.quit()
 
-        self.win.keypad(0)
+        self.win.keypad(False)
         curses.nocbreak()
         curses.echo()
         try:
@@ -108,9 +113,9 @@ class UI(DisplayableContainer):
             if boolean:
                 # don't wait for key presses in the load mode
                 curses.cbreak()
-                self.win.nodelay(1)
+                self.win.nodelay(True)
             else:
-                self.win.nodelay(0)
+                self.win.nodelay(False)
                 # Sanitize halfdelay setting
                 halfdelay = min(255, max(1, self.settings.idle_delay // 100))
                 curses.halfdelay(halfdelay)
@@ -121,7 +126,12 @@ class UI(DisplayableContainer):
 
     def handle_mouse(self):
         """Handles mouse input"""
-        pass
+        try:
+            event = MouseEvent(curses.getmouse())
+        except curses.error:
+            return
+        if not self.console.visible:
+            DisplayableContainer.click(self, event)
 
     def handle_key(self, key):
         self.hint()
@@ -130,17 +140,16 @@ class UI(DisplayableContainer):
             self.keybuffer.clear()
 
         elif not DisplayableContainer.press(self, key):
-            self.keymaps.use_keymap("browser")
+            self.keylayouts.use_layout("browser")
             self.press(key)
 
     def press(self, key):
-        keybuffer = self.keybufer
+        keybuffer = self.keybuffer
         self.status.clear_message()
 
         keybuffer.add(key)
         self.app.hide_bookmarks()
-        self.browser.draw_hints = not keybuffer.finished_parsing \
-                                  and keybuffer.finished_parsing_quantifier
+        self.browser.draw_hints = not keybuffer.finished_parsing and keybuffer.finished_parsing_quantifier
 
         if keybuffer.result is not None:
             try:
@@ -169,23 +178,23 @@ class UI(DisplayableContainer):
             # Handle special keys like ALT+X or unicode here:
             keys = [key]
             previous_load_mode = self.load_mode
-            self.set_load_mode(True)
+            self.load_mode(True)
             for _ in range(4):
                 getkey = self.win.getch()
                 if getkey != -1:
                     keys.append(getkey)
             if len(keys) == 1:
                 keys.append(-1)
-            elif keys[0] == 27:
-                keys[0] = ALT_KEY
-            if self.settings.xterm_alt_key:
+            # elif keys[0] == 27:
+            #     keys[0] = ALT_KEY
+            # if self.settings.xterm_alt_key:
             # if len(keys) == 2 and keys[1] in range(127, 256):
             #     if keys[0] == 195:
             #         keys = [ALT_KEY, keys[1] - 64]
             #     elif keys[0] == 194:
             #         keys = [ALT_KEY, keys[1] - 128] #TODO: uncommenting this
             self.handle_keys(*keys)
-            self.set_load_mode(previous_load_mode)
+            self.load_mode(previous_load_mode)
             if self.settings.flushinput and not self.console.visible:
                 curses.flushinp()
         else:
@@ -209,21 +218,21 @@ class UI(DisplayableContainer):
         from widgets.titlebar import TitleBar
         from widgets.console import Console
         from widgets.statusbar import StatusBar
-        from widgets.procmanager import ProcManager
+        from widgets.taskmanager import TaskManager
         from widgets.pager import Pager
 
         self.titlebar = TitleBar(self.win)
         self.add_child(self.titlebar)
 
-        self.settings.signal_bind('setopt.viewmode', self._set_viewmode)
+        self.settings.signal_bind('setopt.viewmode', self._viewmode)
         self._viewmode = None
         # The following line sets self.browser implicitly through the signal
-        self.viewmode = self.settings.viewmode
+        self._viewmode = self.settings.viewmode
         self.add_child(self.browser)  # TODO:Refactor this
 
-        self.procmngr = ProcManager(self.win)
-        self.taskview.visible = False
-        self.add_child(self.taskview)
+        self.taskmngr = TaskManager(self.win)
+        self.taskmngr.visible = False
+        self.add_child(self.taskmngr)
 
         self.status = StatusBar(self.win, self.browser.main_column)
         self.add_child(self.status)
@@ -270,7 +279,7 @@ class UI(DisplayableContainer):
         y, x = self.termsize
 
         self.browser.resize(self.settings.status_bar_on_top and 2 or 1, 0, y - 2, x)
-        self.procmngr.resize(1, 0, y - 2, x)
+        self.taskmngr.resize(1, 0, y - 2, x)
         self.pager.resize(1, 0, y - 2, x)
         self.titlebar.resize(0, 0, 1, x)
         self.status.resize(self.settings.status_bar_on_top and 1 or y - 1, 0, 1, x)
@@ -281,11 +290,11 @@ class UI(DisplayableContainer):
         self.win.touchwin()
         DisplayableContainer.draw(self)
         # if self._draw_title and self.settings.update_title:   #TODO: Refactor this
-        #     cwd = self.fm.thisdir.path
+        #     cwd = self.app.thisdir.path
         #     if self.settings.tilde_in_titlebar \
-        #        and (cwd == self.fm.home_path
-        #             or cwd.startswith(self.fm.home_path + "/")):
-        #         cwd = '~' + cwd[len(self.fm.home_path):]
+        #        and (cwd == self.app.home_path
+        #             or cwd.startswith(self.app.home_path + "/")):
+        #         cwd = '~' + cwd[len(self.app.home_path):]
         #     if self.settings.shorten_title:
         #         split = cwd.rsplit(os.sep, self.settings.shorten_title)
         #         if os.sep in split[0]:
@@ -306,7 +315,7 @@ class UI(DisplayableContainer):
         #         pass
         #     else:
         #         for fmt_tup in fmt_tups:
-        #             sys.stdout.write("%sranger:%s%s" % fmt_tup)
+        #             sys.stdout.write("%sycp:%s%s" % fmt_tup)
         #             sys.stdout.flush()
 
         self.win.refresh()
@@ -357,7 +366,7 @@ class UI(DisplayableContainer):
             column.level_restore()
 
     def open_console(self, string='', prompt=None, position=None):
-        self.change_mode('normal')
+        self.selection_mode('normal')
         if self.console.open(string, prompt=prompt, position=position):
             self.status.msg = None
 
@@ -372,8 +381,8 @@ class UI(DisplayableContainer):
         self.pager.focused = False
         self.console.visible = False
         self.browser.visible = False
-        self.taskview.visible = True
-        self.taskview.focused = True
+        self.taskmngr.visible = True
+        self.taskmngr.focused = True
 
     def redraw_main_column(self):
         self.browser.main_column.need_redraw = True
@@ -382,9 +391,9 @@ class UI(DisplayableContainer):
         self.status.need_redraw = True
 
     def close_taskview(self):  # TODO: Rename method
-        self.taskview.visible = False
+        self.taskmngr.visible = False
         self.browser.visible = True
-        self.taskview.focused = False
+        self.taskmngr.focused = False
 
     def throbber(self, string='.', remove=False):
         if remove:
@@ -409,11 +418,11 @@ class UI(DisplayableContainer):
         if isinstance(value, signal):
             value = value.value
         if value == '':
-            value = self.ALLOWED_VIEWMODES[0]
-        if value in self.ALLOWED_VIEWMODES:
+            value = ALLOWED_VIEWMODES[0]
+        if value in ALLOWED_VIEWMODES:
             if self._viewmode != value:
                 self._viewmode = value
-                new_browser = self._viewmode_to_class(value)(self.win)
+                new_browser = self._viewmode(value)(self.win)  # FIXME: Duplicating
 
                 if self.browser is None:
                     self.add_child(new_browser)
@@ -427,34 +436,39 @@ class UI(DisplayableContainer):
                 self.redraw_window()
         else:
             raise ValueError("Attempting to set invalid viewmode `%s`, should "
-                             "be one of `%s`." % (value, "`, `".join(self.ALLOWED_VIEWMODES)))
+                             "be one of `%s`." % (value, "`, `".join(ALLOWED_VIEWMODES)))
 
-    def change_mode(self, mode=None):
+    @property
+    def selection_mode(self):
+        return self.selection_mode
+
+    @selection_mode.setter
+    def selection_mode(self, mode=None):
         """:change_mode <mode>
 
-        Change mode to "visual" (selection) or "normal" mode.
+        Change mode to "multiselect" or "normal" mode.
         """
         if mode is None:
-            self.fm.notify('Syntax: change_mode <mode>', bad=True)
+            self.app.notify('Syntax: change_mode <mode>', bad=True)
             return
-        if mode == self.mode:  # pylint: disable=access-member-before-definition
+        if mode == self.selection_mode:  # FIXME: Access member before declaration
             return
-        if mode == 'visual':
-            self._visual_pos_start = self.thisdir.pointer
-            self._visual_move_cycles = 0
+        if mode == 'multiselect':
+            self._visual_pos_start = self.thisdir.pointer  # TODO: Refactor this rows
+            self._visual_move_cycles = 0  #
             self._previous_selection = set(self.thisdir.marked_items)
             self.mark_files(val=not self._visual_reverse, movedown=False)
         elif mode == 'normal':
-            if self.mode == 'visual':  # pylint: disable=access-member-before-definition
+            if self.selection_mode == 'multiselect':  # FIXME: Access member before declaration
                 self._visual_pos_start = None
                 self._visual_move_cycles = None
                 self._previous_selection = None
         else:
             return
-        self.mode = mode
-        self.ui.status.request_redraw()
+        self.selection_mode = mode
+        self.status.request_redraw()
 
-    def move(self):
+    def move(self):  # FIXME: Refactor/replace this methods
         pass
 
     def move_parent(self):

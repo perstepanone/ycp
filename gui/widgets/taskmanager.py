@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-from misc.utils.accumulator import Accumulator
+from misc.accumulator import Accumulator
 
 from gui.widgets import Widget
 
@@ -14,13 +14,12 @@ class TaskManager(Widget, Accumulator):
         self.scroll_begin = 0
 
     def draw(self):
-        base_clr = []
-        base_clr.append('in_taskview')
+        base_clr = ['in_taskview']
         lst = self.get_list()
 
         if self.old_lst != lst:
             self.old_lst = lst
-            self.need_redraw = True
+            self.need_redraw = True  # FIXME: Rename or/and replace attribute
 
         if self.need_redraw:
             self.win.erase()
@@ -48,7 +47,7 @@ class TaskManager(Widget, Accumulator):
                         clr.append('selected')
 
                     descr = obj.get_description()
-                    if obj.progressbar_supported and obj.percent >= 0 and obj.percent <= 100:
+                    if obj.progressbar_supported and 0 <= obj.percent <= 100:
                         self.addstr(y, 0, "%3.2f%% - %s" % (obj.percent, descr), self.wid)
                         wid = int((self.wid / 100) * obj.percent)
                         self.color_at(y, 0, self.wid, tuple(clr))
@@ -66,24 +65,24 @@ class TaskManager(Widget, Accumulator):
 
     def finalize(self):
         y = self.y + 1 + self.pointer - self.scroll_begin
-        self.fm.ui.win.move(y, self.x)
+        self.app.ui.win.move(y, self.x)
 
     def task_remove(self, i=None):
         if i is None:
             i = self.pointer
 
-        if self.fm.loader.queue:
-            self.fm.loader.remove(index=i)
+        if self.app.loader.queue:
+            self.app.loader.remove(index=i)
 
-    def task_move(self, to, i=None):  # pylint: disable=invalid-name
+    def task_move(self, to, i=None):  # FIXME: Invalid name
         if i is None:
             i = self.pointer
 
-        self.fm.loader.move(pos_src=i, pos_dest=to)
+        self.app.loader.move(pos_src=i, pos_dest=to)
 
     def press(self, key):
-        self.fm.ui.keymaps.use_keymap('taskview')
-        self.fm.ui.press(key)
+        self.app.ui.keymaps.use_keymap('taskview')
+        self.app.ui.press(key)
 
     def get_list(self):
-        return self.fm.loader.queue
+        return self.app.loader.queue

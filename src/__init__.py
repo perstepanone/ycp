@@ -5,13 +5,14 @@ import locale
 import pwd
 import socket
 import tempfile
+import mimetypes
+from collections import deque
 
 from services.loader import Loader
 from services.metadata import MetadataManager
 from gui.ui import UI
 from gui.tab import TabManager
-import mimetypes
-from collections import deque
+
 
 # Information
 __license__ = 'GPL3'
@@ -71,9 +72,9 @@ class App:
         self.tabs = TabManager()
         self.restorable_tabs = deque([], MAX_RESTORABLE_TABS)
         self.default_linemodes = deque()
-        self.loader = Loader()
+        # self.loader = Loader()
         self.copy_buffer = set()
-        self.metadata = MetadataManager()
+        # self.metadata = MetadataManager()
         self.image_displayer = None
         self.run = None
         self.settings = None
@@ -269,8 +270,3 @@ def main() -> bool:
         if exit_msg:
             sys.stderr.write(exit_msg)
         return exit_code
-
-
-if __name__ == "__main__":
-    main()
-    exit(sys.main())

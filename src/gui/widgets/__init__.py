@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-
+"""Module with representation stuff"""
 import curses
 
 from ..curses_shortcuts import CursesShortcuts
@@ -15,7 +15,7 @@ except ImportError:
 
 
 class Displayable(  # FIXME: disable=too-many-instance-attributes
-    CursesShortcuts):
+        CursesShortcuts):
     """Displayables are objects which are displayed on the screen.
 
     This is just the abstract class, defining basic operations
@@ -162,12 +162,13 @@ class Displayable(  # FIXME: disable=too-many-instance-attributes
 
             if x < 0 or y < 0:
                 self.app.notify("Warning: Subwindow origin below zero for <%s> "
-                               "(x = %d, y = %d)" % (self, x, y), bad=True)
+                                "(x = %d, y = %d)" % (self, x, y), bad=True)
 
             if x + wid > maxx or y + hei > maxy:
                 self.app.notify(
                     "Warning: Subwindow size out of bounds for <%s> "
-                    "(x = %d, y = %d, hei = %d, wid = %d)" % (self, x, y, hei, wid),
+                    "(x = %d, y = %d, hei = %d, wid = %d)" % (
+                        self, x, y, hei, wid),
                     bad=True,
                 )
 

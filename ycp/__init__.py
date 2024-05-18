@@ -72,9 +72,9 @@ class App:
         self.tabs = TabManager()
         self.restorable_tabs = deque([], MAX_RESTORABLE_TABS)
         self.default_linemodes = deque()
-        # self.loader = Loader()
+        self.loader = Loader()
         self.copy_buffer = set()
-        # self.metadata = MetadataManager()
+        self.metadata = MetadataManager()
         self.image_displayer = None
         self.run = None
         self.settings = None

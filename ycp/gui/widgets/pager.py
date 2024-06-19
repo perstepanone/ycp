@@ -2,11 +2,11 @@
 
 import curses
 
-from gui import ansi
-from gui.direction import Direction
-from misc.img_display import ImgDisplayUnsupportedException
+from .. import ansi
+from ..direction import Direction
+from ...misc.img_display import ImgDisplayUnsupportedException
 
-from gui.widgets import Widget
+from ..displayable import Widget
 
 
 # TODO: Scrolling in embedded pager

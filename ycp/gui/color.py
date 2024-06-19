@@ -55,25 +55,25 @@ def get_color(fg, bg):
     return COLOR_PAIRS[key]
 
 
-black = curses.COLOR_BLACK
-blue = curses.COLOR_BLUE
-cyan = curses.COLOR_CYAN
-green = curses.COLOR_GREEN
-magenta = curses.COLOR_MAGENTA
-red = curses.COLOR_RED
-white = curses.COLOR_WHITE
-yellow = curses.COLOR_YELLOW
-default = -1
+BLACK = curses.COLOR_BLACK
+BLUE = curses.COLOR_BLUE
+CYAN = curses.COLOR_CYAN
+GREEN = curses.COLOR_GREEN
+MAGENTA = curses.COLOR_MAGENTA
+RED = curses.COLOR_RED
+WHITE = curses.COLOR_WHITE
+YELLOW = curses.COLOR_YELLOW
+DEFAULT = -1
 
-normal = curses.A_NORMAL
-bold = curses.A_BOLD
-blink = curses.A_BLINK
-reverse = curses.A_REVERSE
-underline = curses.A_UNDERLINE
-invisible = curses.A_INVIS
-dim = curses.A_DIM
+NORMAL = curses.A_NORMAL
+BOLD = curses.A_BOLD
+BLINK = curses.A_BLINK
+REVERSE = curses.A_REVERSE
+UNDERLINE = curses.A_UNDERLINE
+INVISIBLE = curses.A_INVIS
+DIM = curses.A_DIM
 
-default_colors = (default, default, normal)
+default_colors = (DEFAULT, DEFAULT, NORMAL)
 
 curses.setupterm()
 

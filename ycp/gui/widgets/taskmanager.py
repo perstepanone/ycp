@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
 
-from misc.accumulator import Accumulator
+from ...misc.accumulator import Accumulator
 
-from gui.widgets import Widget
+from ..displayable import Widget
 
 
 class TaskManager(Widget, Accumulator):

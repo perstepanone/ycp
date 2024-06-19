@@ -5,9 +5,15 @@ import os
 import sys
 import curses
 
-from gui.displayable import DisplayableContainer
-from misc.keybinding_parser import KeyBuffer, KeyLayout
-from mouse_event import MouseEvent, _setup_mouse
+from .displayable import DisplayableContainer
+from ..misc.keybinding_parser import KeyBuffer, KeyLayout
+from ..services.signals import Signal
+from .mouse_event import MouseEvent, _setup_mouse
+from .widgets.titlebar import TitleBar
+from .widgets.console import Console
+from .widgets.statusbar import StatusBar
+from .widgets.taskmanager import TaskManager
+from .widgets.pager import Pager
 
 ESCAPE_ICON_TITLE = '\033]1;'
 ALLOWED_VIEWMODES = 'miller', 'multipane'
@@ -15,8 +21,8 @@ ALLOWED_VIEWMODES = 'miller', 'multipane'
 
 # TODO: add mice support
 class UI(DisplayableContainer):
-    def __init__(self, win, env, app, settings):
-        super().__init__(win, env, app, settings)
+    def __init__(self, app=None):
+        super().__init__(self, None)
         self.is_setup = False
         self.is_on = False
         self.termsize = None
@@ -24,9 +30,9 @@ class UI(DisplayableContainer):
         self.keylayouts = KeyLayout(self.keybuffer)
         self.redrawlock = threading.Event()
         self.redrawlock.set()
-
+        self._load_mode = False
         self.titlebar = None
-        self._viewmode = None
+        self.viewmode = ALLOWED_VIEWMODES[0]
         self.selection_mode = None
         self.taskmngr = None
         self.status = None
@@ -39,7 +45,7 @@ class UI(DisplayableContainer):
             self.app = app
 
     def setup_curses(self):
-        # os.environ['ESCDELAY'] = '25'
+        os.environ['ESCDELAY'] = '25'
         try:
             self.win = curses.initscr()
         except curses.error as ex:
@@ -47,13 +53,12 @@ class UI(DisplayableContainer):
                 os.environ['TERM'] = 'linux'
                 self.win = curses.initscr()
         self.keylayouts.use_layout('browser')
-        super().__init__(self, None)
+        # super().__init__(self)
 
     def initialize(self):
         """initialize curses, then call setup (at the first time) and resize."""
         self.win.leaveok(False)
         self.win.keypad(True)
-        self.load_mode = False
 
         curses.cbreak()
         curses.noecho()
@@ -102,13 +107,13 @@ class UI(DisplayableContainer):
 
     @property
     def load_mode(self):
-        return self.load_mode
+        return self._load_mode
 
     @load_mode.setter
     def load_mode(self, boolean):
         boolean = bool(boolean)
         if boolean != self.load_mode:
-            self.load_mode = boolean
+            self._load_mode = boolean
 
             if boolean:
                 # don't wait for key presses in the load mode
@@ -149,7 +154,8 @@ class UI(DisplayableContainer):
 
         keybuffer.add(key)
         self.app.hide_bookmarks()
-        self.browser.draw_hints = not keybuffer.finished_parsing and keybuffer.finished_parsing_quantifier
+        self.browser.draw_hints = not keybuffer.finished_parsing \
+                                  and keybuffer.finished_parsing_quantifier
 
         if keybuffer.result is not None:
             try:
@@ -178,7 +184,7 @@ class UI(DisplayableContainer):
             # Handle special keys like ALT+X or unicode here:
             keys = [key]
             previous_load_mode = self.load_mode
-            self.load_mode(True)
+            self._load_mode(True)
             for _ in range(4):
                 getkey = self.win.getch()
                 if getkey != -1:
@@ -194,7 +200,7 @@ class UI(DisplayableContainer):
             #     elif keys[0] == 194:
             #         keys = [ALT_KEY, keys[1] - 128] #TODO: uncommenting this
             self.handle_keys(*keys)
-            self.load_mode(previous_load_mode)
+            self._load_mode(previous_load_mode)
             if self.settings.flushinput and not self.console.visible:
                 curses.flushinp()
         else:
@@ -215,11 +221,6 @@ class UI(DisplayableContainer):
 
     def setup(self):
         """Build up the UI by initializing widgets."""
-        from widgets.titlebar import TitleBar
-        from widgets.console import Console
-        from widgets.statusbar import StatusBar
-        from widgets.taskmanager import TaskManager
-        from widgets.pager import Pager
 
         self.titlebar = TitleBar(self.win)
         self.add_child(self.titlebar)
@@ -227,7 +228,7 @@ class UI(DisplayableContainer):
         self.settings.signal_bind('setopt.viewmode', self._viewmode)
         self._viewmode = None
         # The following line sets self.browser implicitly through the signal
-        self._viewmode = self.settings.viewmode
+        self.viewmode = self.settings.viewmode
         self.add_child(self.browser)  # TODO:Refactor this
 
         self.taskmngr = TaskManager(self.win)
@@ -278,11 +279,13 @@ class UI(DisplayableContainer):
         self.termsize = self.win.getmaxyx()
         y, x = self.termsize
 
-        self.browser.resize(self.settings.status_bar_on_top and 2 or 1, 0, y - 2, x)
+        self.browser.resize(
+            self.settings.status_bar_on_top and 2 or 1, 0, y - 2, x)
         self.taskmngr.resize(1, 0, y - 2, x)
         self.pager.resize(1, 0, y - 2, x)
         self.titlebar.resize(0, 0, 1, x)
-        self.status.resize(self.settings.status_bar_on_top and 1 or y - 1, 0, 1, x)
+        self.status.resize(
+            self.settings.status_bar_on_top and 1 or y - 1, 0, 1, x)
         self.console.resize(y - 1, 0, 1, x)
 
     def draw(self):
@@ -414,15 +417,15 @@ class UI(DisplayableContainer):
         return self._viewmode
 
     @_viewmode.setter
-    def _viewmode(self, value, signal=None):
-        if isinstance(value, signal):
+    def _viewmode(self, value):
+        if isinstance(value, Signal):
             value = value.value
         if value == '':
             value = ALLOWED_VIEWMODES[0]
         if value in ALLOWED_VIEWMODES:
             if self._viewmode != value:
                 self._viewmode = value
-                new_browser = self._viewmode(value)(self.win)  # FIXME: Duplicating
+                new_browser = self._viewmode_to_class(value)(self.win)  # FIXME: Duplicating
 
                 if self.browser is None:
                     self.add_child(new_browser)
@@ -438,12 +441,22 @@ class UI(DisplayableContainer):
             raise ValueError("Attempting to set invalid viewmode `%s`, should "
                              "be one of `%s`." % (value, "`, `".join(ALLOWED_VIEWMODES)))
 
+    @staticmethod
+    def _viewmode_to_class(viewmode):
+        if viewmode == 'miller':
+            from .widgets.views import MillerView
+            return MillerView
+        elif viewmode == 'multipane':
+            from .widgets.views import MultipaneView
+            return MultipaneView
+        return None
+
     @property
-    def selection_mode(self):
+    def _selection_mode(self):
         return self.selection_mode
 
-    @selection_mode.setter
-    def selection_mode(self, mode=None):
+    @_selection_mode.setter
+    def _selection_mode(self, mode=None):
         """:change_mode <mode>
 
         Change mode to "multiselect" or "normal" mode.

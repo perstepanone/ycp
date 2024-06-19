@@ -7,9 +7,9 @@ from time import time
 from os.path import splitext
 from bidi.algorithm import get_display as get_bidi_text
 
-from gui.widgets import Widget
-from gui.widgets.pager import Pager
-from misc.widestring import WideString
+from ..displayable import Widget
+from .pager import Pager
+from ...misc.widestring import WideString
 
 DEFAULT_ROWMODE = "filename"
 
@@ -410,7 +410,8 @@ class BrowserColumn(Pager, Widget):
             # Computing display data. Now we compute the display_data list
             # ready to display in curses. It is a list of lists [string, attr]
 
-            this_color = base_color + list(drawn.mimetype_tuple) + self._draw_directory_color(i, drawn, copied)
+            this_color = base_color + list(drawn.mimetype_tuple) + \
+                self._draw_directory_color(i, drawn, copied)
             display_data = []
             drawn.display_data[key] = display_data
 

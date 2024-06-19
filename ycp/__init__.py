@@ -7,11 +7,19 @@ import socket
 import tempfile
 import mimetypes
 from collections import deque
+import subprocess
+import cProfile
+import pstats
+import traceback
 
-from services.loader import Loader
-from services.metadata import MetadataManager
-from gui.ui import UI
-from gui.tab import TabManager
+from .config.settings import Settings
+from .services.loader import Loader
+from .services.metadata import MetadataManager
+from .services.signals import SignalDispatcher
+from .services.shared import VideoManagerAware, SettingsAware
+from .gui.ui import UI
+from .gui.tab import TabManager
+# from .misc.keybinding_parser import SPECIAL_KEYS, VERY_SPECIAL_KEYS
 
 
 # Information
@@ -21,7 +29,8 @@ __release__ = False
 
 VERSION_MSG = [
     'ycp version: {0}'.format(__version__),
-    'Python version: {0}'.format(' '.join(line.strip() for line in sys.version.splitlines())),
+    'Python version: {0}'.format(''.join(line.strip()
+                                         for line in sys.version.splitlines())),
     'Locale: {0}'.format('.'.join(str(s) for s in locale.getlocale())),
 ]
 
@@ -30,7 +39,6 @@ def version_helper():
     if __release__:
         version_string = 'ycp {0}'.format(__version__)
     else:
-        import subprocess
         version_string = 'ycp-master {0}'
         try:
             with subprocess.Popen(
@@ -63,8 +71,11 @@ DATADIR = os.path.expanduser('~/.local/share/ycp')
 args = None  # FIXME: arguments from console
 
 
-class App:
+class App(SignalDispatcher):
+    """Main class of app"""
+
     def __init__(self, ui=None, paths=None, bookmarks=None):
+        super().__init__()
         self.ui = ui if ui is not None else UI()
         self.paths = paths
         self.bookmarks = bookmarks
@@ -101,7 +112,8 @@ class App:
             self.expectedtab = self.tabs[self.current_tab]
         else:
             self.current_tab = 1
-            self.tabs = self.current_tab = self.expectedtab  # TODO:Add reference to tab instance
+            # TODO:Add reference to tab instance
+            self.tabs = self.current_tab = self.expectedtab
 
         # FIXME: add statement about clean option
         # TODO: add bookmarks/tags functionality
@@ -144,7 +156,8 @@ def set_level() -> None:
 
 
 def restore_saved_tabs(app: object) -> None:
-    tabs_datapath = app.datapath('tabs')  # FIXME: Refactor references in function
+    # FIXME: Refactor references in function
+    tabs_datapath = app.datapath('tabs')
     if app.settings.save_tabs_on_exit and os.path.exists(tabs_datapath) and not args.paths:
         try:
             with open(tabs_datapath, 'r', encoding="utf-8") as fobj:
@@ -153,9 +166,11 @@ def restore_saved_tabs(app: object) -> None:
                 app.start_paths += tabs_saved[0].split('\0')
                 # Remove dead entries if this behavior is defined in settings
                 if app.settings.filter_dead_tabs_on_startup:
-                    app.start_paths = list(filter(os.path.isdir, app.start_paths))
+                    app.start_paths = list(
+                        filter(os.path.isdir, app.start_paths))
                 try:
-                    startup_path_tab_index = app.start_paths.index(startup_path)  # FIXME: Replace variable
+                    startup_path_tab_index = app.start_paths.index(
+                        startup_path)  # FIXME: Replace variable
                 except ValueError:
                     app.start_paths.insert(0, startup_path)
             if tabs_saved[-1]:
@@ -171,10 +186,11 @@ def main() -> bool:
     set_locale()
     set_level()
 
-    app = App()
     # TODO: Add opportunity to save config
     # TODO: Add opportunity to tagging files
     # TODO: Add some arguments in cli
+
+    SettingsAware.settings_set(Settings())
 
     profile = None
     exit_msg = ''
@@ -182,32 +198,31 @@ def main() -> bool:
     startup_path_tab_index = 0
     try:
         app = App()
+        VideoManagerAware.app_set(app)
         # FIXME: Settings load
-        if args.list_unused_keys:  # FIXME: Console argument
-            from misc.keybinding_parser import (SPECIAL_KEYS, VERY_SPECIAL_KEYS)
-
-            maps = app.ui.keymaps['browser']
-            for key in sorted(SPECIAL_KEYS.values(), key=str):
-                if key not in maps:
-                    print("<%s>" % SPECIAL_KEYS[key])
-            for key in range(33, 127):
-                if key not in maps:
-                    print(chr(key))
-            return 0
+        # if args.list_unused_keys:  # FIXME: Console argument
+        # maps = app.ui.keymaps['browser']
+        # for key in sorted(SPECIAL_KEYS.values(), key=str):
+        # if key not in maps:
+        # print("<%s>" % SPECIAL_KEYS[key])
+        # for key in range(33, 127):
+        # if key not in maps:
+        # print(chr(key))
+        # return 0
 
         if not sys.stdin.isatty():
             sys.stderr.write("Error: Must run ycp from terminal\n")
             raise SystemExit(1)
         elif app.username == 'root':
             pass
-        elif not args.debug:  # FIXME: Reference
-            pass
-        if not args.clean:
+        # elif not args.debug:  # FIXME: Reference
+            # pass
+        # if not args.clean:
             # Create data directory
-            if not os.path.exists(DATADIR):
-                os.makedirs(DATADIR)
+            # if not os.path.exists(DATADIR):
+            # os.makedirs(DATADIR)
 
-        restore_saved_tabs(app)
+        # restore_saved_tabs(app) # FIXME: with TabManager functionality
         app.initialize()
         app.tabs.tab_move(startup_path_tab_index)
         app.ui.initialize()
@@ -217,23 +232,22 @@ def main() -> bool:
             nested_warning = "You're in a nested ycp instance!"
             warn_when_nested = app.settings.nested_ranger_warning.lower()
             if warn_when_nested == 'true':
-                app.notify(' '.join((warning, nested_warning)), bad=False)  # FIXME: Add method
+                app.notify(' '.join((warning, nested_warning)),
+                           bad=False)  # FIXME: Add method
             elif warn_when_nested == 'error':
                 app.notify(' '.join((warning.upper(), nested_warning + '!!')),
                            bad=True)
 
         if app.args.profile:
-            import cProfile
-            import pstats
             app.__app = app
             profile_file = tempfile.gettempdir() + '/ycp_profile'
-            cProfile.run('ycp.__app.loop()', profile_file)  # FIXME: Update reference
+            # FIXME: Update reference
+            cProfile.run('ycp.__app.loop()', profile_file)
             profile = pstats.Stats(profile_file, stream=sys.stderr)
         else:
             app.loop()
 
     except Exception:
-        import traceback
         ex_traceback = traceback.format_exc()
         exit_msg += '\n'.join(VERSION_MSG) + '\n'
         try:
@@ -264,8 +278,8 @@ def main() -> bool:
         except (AttributeError, NameError):
             pass
         # If profiler is enabled print the stats
-        if app.args.profile and profile:
-            profile.strip_dirs().sort_stats('cumulative').print_callees()
+        # if app.args.profile and profile:  # FIXME: arguments from console
+            # profile.strip_dirs().sort_stats('cumulative').print_callees()
         # print the exit message if any
         if exit_msg:
             sys.stderr.write(exit_msg)

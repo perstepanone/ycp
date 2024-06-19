@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-
+"""The statusbar displays information about the current video or playlists"""
 import curses
 import os
 from os import getuid, readlink
@@ -7,10 +7,10 @@ from pwd import getpwuid
 from grp import getgrgid
 from time import time, strftime, localtime
 
-from misc.human_readable import human_readable
-from gui.bar import Bar
+from ...misc.human_readable import human_readable
+from .bar import Bar
 
-from . import Widget
+from ..displayable import Widget
 
 
 class StatusBar(Widget):  # FIXME: Refactor this class

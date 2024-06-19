@@ -2,12 +2,14 @@
 
 
 import curses
-from config import settings
-from misc.keybinding_parser import key_to_string
-from . import Widget
-from column import BrowserColumn
-from pager import Pager
-from . import DisplayableContainer
+from itertools import groupby
+
+from ...config import settings
+from ...misc.keybinding_parser import key_to_string
+from ..displayable import Widget
+from .column import BrowserColumn
+from .pager import Pager
+from ..displayable import DisplayableContainer
 
 
 class View(Widget, DisplayableContainer):
@@ -128,7 +130,6 @@ class View(Widget, DisplayableContainer):
             first key.
 
             """
-            from itertools import groupby
 
             # groupby needs the list to be sorted.
             hints.sort(key=lambda t: t[0])
@@ -172,7 +173,8 @@ class View(Widget, DisplayableContainer):
 
         hei = min(self.hei - 1, len(hints))
         ystart = self.hei - hei
-        self.addnstr(ystart - 1, 0, "key          command".ljust(self.wid), self.wid)
+        self.addnstr(
+            ystart - 1, 0, "key          command".ljust(self.wid), self.wid)
         try:
             self.win.chgat(ystart - 1, 0, curses.A_UNDERLINE)
         except curses.error:
@@ -246,8 +248,8 @@ class MillerView(View):
         last = 0.1 if self.settings.padding_right else 0
         if len(self.ratios) >= 2:
             self.stretch_ratios = self.ratios[:-2] + \
-                                  ((self.ratios[-2] + self.ratios[-1] * 1.0 - last),
-                                   (self.ratios[-1] * last))
+                ((self.ratios[-2] + self.ratios[-1] * 1.0 - last),
+                 (self.ratios[-1] * last))
 
         offset = 1 - len(ratios)
         if self.preview:
@@ -285,7 +287,8 @@ class MillerView(View):
         DisplayableContainer.draw(self)
         if self.settings.draw_borders:
             draw_borders = self.settings.draw_borders.lower()
-            if draw_borders in ['both', 'true']:  # 'true' for backwards compat.
+            # 'true' for backwards compat.
+            if draw_borders in ['both', 'true']:
                 border_types = ['separators', 'outline']
             else:
                 border_types = [draw_borders]
@@ -322,8 +325,10 @@ class MillerView(View):
         # Draw horizontal lines and the leftmost vertical line
         if 'outline' in border_types:
             try:
-                win.hline(0, left_start, curses.ACS_HLINE, right_end - left_start)
-                win.hline(self.hei - 1, left_start, curses.ACS_HLINE, right_end - left_start)
+                win.hline(0, left_start, curses.ACS_HLINE,
+                          right_end - left_start)
+                win.hline(self.hei - 1, left_start,
+                          curses.ACS_HLINE, right_end - left_start)
                 win.vline(1, left_start, curses.ACS_VLINE, self.hei - 2)
             except curses.error:
                 pass
@@ -408,19 +413,23 @@ class MillerView(View):
                 if not cut_off:
                     wid = int(self.wid - left + 1 - pad)
                 else:
-                    self.columns[i].resize(pad, max(0, left - 1), hei - pad * 2, 1)
+                    self.columns[i].resize(
+                        pad, max(0, left - 1), hei - pad * 2, 1)
                     self.columns[i].visible = False
                     continue
 
             if i == last_i - 1:
-                self.pager.resize(pad, left, hei - pad * 2, max(1, self.wid - left - pad))
+                self.pager.resize(pad, left, hei - pad * 2,
+                                  max(1, self.wid - left - pad))
 
                 if cut_off:
-                    self.columns[i].resize(pad, left, hei - pad * 2, max(1, self.wid - left - pad))
+                    self.columns[i].resize(
+                        pad, left, hei - pad * 2, max(1, self.wid - left - pad))
                     continue
 
             try:
-                self.columns[i].resize(pad, left, hei - pad * 2, max(1, wid - 1))
+                self.columns[i].resize(
+                    pad, left, hei - pad * 2, max(1, wid - 1))
             except KeyError:
                 pass
 
@@ -524,7 +533,8 @@ class MultipaneView(View):
 
         if self._draw_borders_setting():
             draw_borders = self._draw_borders_setting()
-            if draw_borders in ['both', 'true']:  # 'true' for backwards compat.
+            # 'true' for backwards compat.
+            if draw_borders in ['both', 'true']:
                 border_types = ['separators', 'outline']
             else:
                 border_types = [draw_borders]
@@ -539,7 +549,8 @@ class MultipaneView(View):
     def _draw_border_rectangle(self, left_start, right_end):
         win = self.win
         win.hline(0, left_start, curses.ACS_HLINE, right_end - left_start)
-        win.hline(self.hei - 1, left_start, curses.ACS_HLINE, right_end - left_start)
+        win.hline(self.hei - 1, left_start,
+                  curses.ACS_HLINE, right_end - left_start)
         win.vline(1, left_start, curses.ACS_VLINE, self.hei - 2)
         win.vline(1, right_end, curses.ACS_VLINE, self.hei - 2)
         # Draw the four corners

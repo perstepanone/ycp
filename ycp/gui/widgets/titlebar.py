@@ -3,8 +3,8 @@
 from os.path import basename
 from bidi.algorithm import get_display
 
-from gui.bar import Bar
-from . import Widget
+from .bar import Bar
+from ..displayable import Widget
 
 
 class TitleBar(Widget):

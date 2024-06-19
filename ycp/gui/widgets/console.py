@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-
+"""The Console widget implements a vim-like console"""
 
 import curses
 import os
@@ -7,11 +7,11 @@ import re
 from collections import deque
 from io import open
 
-from ... import PY3, YCPDIR
-from . import Widget
-from gui.direction import Direction
-from misc.widestring import uwid, WideString
-from services.history import History, HistoryException
+# from ... import PY3, YCPDIR
+from ..displayable import Widget
+from ..direction import Direction
+from ...misc.widestring import uwid, WideString
+from ...services.history import History, HistoryException
 
 
 class Console(Widget):

@@ -2,7 +2,7 @@
 
 from abc import ABC, abstractmethod
 from datetime import datetime
-
+from subprocess import CalledProcessError
 
 class Row(ABC):
     """
@@ -140,9 +140,9 @@ class FileInfoRow(Row):
 
     def infostring(self, vobj, metadata):
         if not vobj.is_directory:
-            from subprocess import CalledProcessError
             try:
-                pass  # fileinfo = spawn.check_output(["file", "-Lb", fobj.path]).strip() TODO: Refactoring this
+                # fileinfo = spawn.check_output(["file", "-Lb", fobj.path]).strip() TODO: Refactoring this
+                pass
             except CalledProcessError:
                 return "unknown"
             # return fileinfo
@@ -197,7 +197,8 @@ class SizeMtimeRow(Row):
             else:
                 sizestring = vobj.size  # FIXME: Replace/delete attribute
         else:
-            pass  # sizestring = human_readable(fobj.size) # TODO: Refactoring this
+            # sizestring = human_readable(fobj.size) # TODO: Refactoring this
+            pass
         # return "%s %s" % (sizestring, datetime.fromtimestamp(vobj.stat.st_mtime).strftime("%Y-%m-%d %H:%M"))
 
 
@@ -250,4 +251,4 @@ class SizeHumanReadableMtimeRow(Row):
         else:
             # sizestring = human_readable(vobj.size) TODO:Refactoring this
             return
-            pass  # "%s %11s" % (sizestring, human_readable_time(vobj.stat.st_mtime)) TODO: Refactoring this
+            # "%s %11s" % (sizestring, human_readable_time(vobj.stat.st_mtime)) TODO: Refactoring this

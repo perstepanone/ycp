@@ -2,12 +2,12 @@
 """A library to help to convert ANSI codes to curses instructions."""
 
 import re
-from misc.widestring import WideString
-from gui import color
+from ..misc.widestring import WideString
+from . import color
 
 ansi_re = re.compile('(\x1b' + r'\[\d*(?:;\d+)*?[a-zA-Z])')
 codesplit_re = re.compile(r'38;5;(\d+);|48;5;(\d+);|(\d*);')
-reset = '\x1b[0m'
+RESET = '\x1b[0m'
 
 
 def split_ansi_from_text(ansi_text):

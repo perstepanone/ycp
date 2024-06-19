@@ -1,7 +1,11 @@
 # -*- coding: utf-8 -*-
-
+"""Bunch of abstract classes for widget manipulating"""
 import curses
-from gui.curses_shortcuts import CursesShortcuts
+
+
+from .curses_shortcuts import CursesShortcuts
+# from .ui import UI
+from ..services.shared import VideoManagerAware
 
 try:
     from bidi.algorithm import get_display
@@ -11,7 +15,7 @@ except ImportError:
     HAVE_BIDI = False
 
 
-class Displayable:
+class Displayable(VideoManagerAware, CursesShortcuts):  # FIXME: disable=too-many-instance-attributes
     """Displayables are objects which are displayed on the screen.
 
     This is just the abstract class, defining basic operations
@@ -50,9 +54,8 @@ class Displayable:
                  win,
                  env=None,
                  app=None,
-                 settings=None):
-        from gui.ui import UI
-
+                 settings=None):  # FIXME: disable=super-init-not-called
+        from .ui import UI 
         if env is not None:
             self.env = env
         if app is not None:
@@ -160,7 +163,8 @@ class Displayable:
             if x + wid > maxx or y + hei > maxy:
                 self.app.notify(
                     "Warning: Subwindow size out of bounds for <%s> "
-                    "(x = %d, y = %d, hei = %d, wid = %d)" % (self, x, y, hei, wid),
+                    "(x = %d, y = %d, hei = %d, wid = %d)" % (
+                        self, x, y, hei, wid),
                     bad=True,
                 )
 
@@ -242,7 +246,7 @@ class DisplayableContainer(Displayable, CursesShortcuts):
 
         self.container = []
 
-        super().__init__(win)
+        super().__init__(self, win)
 
     def poke(self):
         """Recursively called on objects in container"""
@@ -327,3 +331,10 @@ class DisplayableContainer(Displayable, CursesShortcuts):
                 if obj is not None:
                     return obj
         return None
+
+
+class Widget:
+
+    def __init__(self):
+        pass
+    

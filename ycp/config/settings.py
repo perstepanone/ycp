@@ -1,13 +1,13 @@
 # -*- coding: utf-8 -*-
-
+"""Default options and configurations"""
 
 import re
 import os.path
 from inspect import isfunction
 
-from ... import ycp
-from services.signals import SignalDispatcher
-from gui.colorscheme import colorscheme_name_to_class
+from ..services.signals import SignalDispatcher
+from ..gui.colorscheme import colorscheme_name_to_class
+from ..services.shared import VideoManagerAware
 
 # Use these priority constants to trigger events at specific points in time
 # during processing of the signals "setopt" and "setopt.<some_setting_name>"
@@ -131,7 +131,7 @@ DEFAULT_VALUES = {
 }
 
 
-class Settings(SignalDispatcher):
+class Settings(SignalDispatcher, VideoManagerAware):
 
     def __init__(self):
         super().__init__()
@@ -170,7 +170,8 @@ class Settings(SignalDispatcher):
                 if os.path.exists(result):
                     signal.value = result
                 else:
-                    self.app.notify("Preview script `{0}` doesn't exist!".format(result), bad=True)
+                    self.app.notify(
+                        "Preview script `{0}` doesn't exist!".format(result), bad=True)
                     signal.value = None
 
         elif name == 'use_preview_script':
@@ -276,7 +277,8 @@ class Settings(SignalDispatcher):
             assert isinstance(value, typ), \
                 "Warning: The option `" + name + "' has an incorrect type!"" Got " \
                 + str(type(value)) + ", expected " + str(typ) + "!" + \
-                " Please check if your commands.py is up to date." if not self.app.ui.is_set_up else ""
+                " Please check if your commands.py is up to date." \
+                    if not self.app.ui.is_set_up else ""
         return True  # FIXME: Validate app attribute
 
     __getitem__ = __getattr__  # FIXME: private and protected attribute access №2
@@ -313,7 +315,7 @@ def _raw_set_with_signal(self, signal):
     self._raw_set(signal.setting, signal.value, signal.path, signal.tags)
 
 
-class LocalSettings(object):
+class LocalSettings:
 
     def __init__(self, path, parent):
         self.__dict__['_parent'] = parent

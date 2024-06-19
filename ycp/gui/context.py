@@ -26,7 +26,7 @@ CONTEXT_KEYS = [
 ]
 
 
-class Context(object):  # FIXME: Reduce public methods
+class Context:  # FIXME: Reduce public methods
 
     def __init__(self, keys):
         # set all given keys to True

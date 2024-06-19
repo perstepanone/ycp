@@ -3,10 +3,10 @@
 import os
 import sys
 from collections import deque
+from errno import EEXIST
 
 
 def allow_access_to_confdir(confdir, allow):
-    from errno import EEXIST
 
     if allow:
         try:
@@ -17,7 +17,7 @@ def allow_access_to_confdir(confdir, allow):
                 print(confdir)
                 print("To run ycp without the need for configuration")
                 print("files, use the --clean option.")
-                raise SystemExit
+                raise SystemExit from err
         else:
             pass
         if confdir not in sys.path:

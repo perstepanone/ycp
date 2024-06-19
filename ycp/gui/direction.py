@@ -22,6 +22,9 @@ import math
 
 class Direction(dict):
 
+    """ Class defines moving cursor on pager`s columns
+    """
+
     def __init__(self, dictionary=None, **keywords):
         if dictionary is not None:
             dict.__init__(self, dictionary)  # FIXME: Data structures
@@ -53,7 +56,8 @@ class Direction(dict):
                 return fallback
 
     def up(self):
-        return -Direction.down(self)  # FIXME: disable=invalid-unary-operand-type
+        # FIXME: disable=invalid-unary-operand-type
+        return -Direction.down(self)
 
     def down(self):
         return Direction._get_direction(self, 'down', 'up')
@@ -65,7 +69,8 @@ class Direction(dict):
         return Direction._get_bool(self, 'absolute', 'relative')
 
     def left(self):
-        return -Direction.right(self)  # FIXME: disable=invalid-unary-operand-type
+        # FIXME: disable=invalid-unary-operand-type
+        return -Direction.right(self)
 
     def relative(self):
         return not Direction.absolute(self)

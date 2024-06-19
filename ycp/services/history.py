@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-class HistoryException:
+class HistoryException(Exception):
     def __init__(self):
         pass
 

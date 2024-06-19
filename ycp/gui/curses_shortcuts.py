@@ -4,7 +4,8 @@
 import sys
 import curses
 
-from gui.color import get_color
+from .color import get_color
+from ..services.shared import SettingsAware
 
 REVERSE_ADDCH_ARGS = sys.version[0:5] == '3.7.0'
 
@@ -15,7 +16,7 @@ def _fix_surrogates(args):
             or arg for arg in args]
 
 
-class CursesShortcuts:
+class CursesShortcuts(SettingsAware):
     """This class defines shortcuts to facilitate operations with curses.
 
     color(*keys) -- sets the color associated with the keys from

@@ -4,7 +4,7 @@ from os.path import abspath
 import re
 from itertools import zip_longest
 
-from misc.hash import hash_chunks
+from ..misc.hash import hash_chunks
 
 SIMPLE_FILTERS = {}
 FILTER_COMBINATORS = {}

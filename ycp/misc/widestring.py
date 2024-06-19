@@ -2,7 +2,7 @@
 
 from unicodedata import east_asian_width
 
-from .. import PY3
+# from .. import PY3
 
 ASCIIONLY = set(chr(c) for c in range(1, 128))
 NARROW = 1

@@ -100,7 +100,7 @@ class SignalHandler:
         self._activity = activity
 
 
-class SignalDispatcher(object):
+class SignalDispatcher:
     """This abstract class handles the binding and emitting of signals."""
 
     def __init__(self):

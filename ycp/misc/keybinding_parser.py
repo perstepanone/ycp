@@ -2,8 +2,7 @@
 
 # import copy
 import curses.ascii
-
-from .. import PY3
+# from .. import PY3
 
 digits = set(range(ord('0'), ord('9') + 1))
 

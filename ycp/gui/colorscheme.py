@@ -28,19 +28,19 @@ import os.path
 from abc import abstractmethod
 from curses import color_pair
 from io import open
-
-from .. import YCPDIR, CONFDIR
-from gui.color import get_color
-from gui.context import Context
-from misc.utils import allow_access_to_confdir, flatten
 from functools import cache
+
+# from .. import YCPDIR, CONFDIR
+from .color import get_color
+from .context import Context
+from ..misc.utils import allow_access_to_confdir, flatten
 
 
 class ColorSchemeError(Exception):
     pass
 
 
-class ColorScheme(object):
+class ColorScheme:
     """This is the class that colorschemes must inherit from.
 
     it defines the get() method, which returns the color tuple

@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 
-from ... import PY3
-from misc.widestring import WideString, utf_char_width
+# from ... import PY3
+from ...misc.widestring import WideString, utf_char_width
 
 
 class Bar(object):
